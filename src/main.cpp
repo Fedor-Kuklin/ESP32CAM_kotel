@@ -2,45 +2,10 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <WebServer.h>
-
-// ---------------------- WiFi ----------------------
-const char* WIFI_SSID = "YOUR_SSID";
-const char* WIFI_PASS = "YOUR_PASS";
-
-// ---------------------- Оптопары ----------------------
-const int gpio_btn_plus  = 12;
-const int gpio_btn_minus = 13;
-const int gpio_btn_mode  = 14;
-
-// ---------------------- ROI настройки ----------------------
-int ROI_X = 20, ROI_Y = 10, ROI_W = 120, ROI_H = 80;
+#include <Global_const.h>
 
 #define FRAME_SIZE FRAMESIZE_QQVGA
 #define PIXFORMAT PIXFORMAT_RGB565
-
-// ---------------------- ГЕОМЕТРИЯ СЕГМЕНТОВ ----------------------
-struct Rect { int x,y,w,h; };
-const int DIGITS = 2;
-const int SEGMENTS = 7;
-
-Rect segPos[DIGITS][SEGMENTS] = {
-  {
-    {8,  6, 18, 8}, {26, 6, 8, 18}, {26, 28, 8, 18}, {8, 44, 18, 8},
-    {0, 28, 8, 18}, {0, 6, 8, 18}, {8, 26, 18, 8}
-  },
-  {
-    {44, 6, 18, 8}, {62, 6, 8, 18}, {62, 28, 8, 18}, {44, 44, 18, 8},
-    {36, 28, 8, 18}, {36, 6, 8, 18}, {44, 26, 18, 8}
-  }
-};
-
-// ---------------------- Верхние LED ----------------------
-Rect topLEDs[] = {
-  {2, -6, 8, 8},
-  {30, -6, 8, 8},
-  {60, -6, 8, 8},
-  {88, -6, 8, 8}
-};
 
 int threshSegment = 60;
 int threshLED = 80;
