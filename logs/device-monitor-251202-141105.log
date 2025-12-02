@@ -1,0 +1,780 @@
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+E (600) esp32 ll_cam: Requested format is not supported
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x4010e440  PS      : 0x00060c30  A0      : 0x80106c62  A1      : 0x3ffb2140  
+A2      : 0x3ffb8a18  A3      : 0x000003ff  A4      : 0x01312d00  A5      : 0x00000026  
+A6      : 0x00060a20  A7      : 0x00000001  A8      : 0x00001000  A9      : 0x00000000  
+A10     : 0x000003ff  A11     : 0x00000004  A12     : 0x00002000  A13     : 0x000003ff  
+A14     : 0x3f413bd0  A15     : 0x00000078  SAR     : 0x00000019  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4010e440  LEND    : 0x4010e462  LCOUNT  : 0x000003fe  
+
+
+Backtrace: 0x4010e43d:0x3ffb2140 0x40106c5f:0x3ffb2160 0x4010680a:0x3ffb21a0 0x400d38c9:0x3ffb21f0 0x400dbb02:0x3ffb2290
+
+
+
+
+ELF file SHA256: 57b7dc8dcf79b962
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4

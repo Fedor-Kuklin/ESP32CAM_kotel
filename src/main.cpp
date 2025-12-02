@@ -1,241 +1,145 @@
-#include <Arduino.h>
 #include "esp_camera.h"
 #include <WiFi.h>
-#include <WebServer.h>
-#include <Global_const.h>
 
-#define FRAME_SIZE FRAMESIZE_QQVGA
-#define PIXFORMAT PIXFORMAT_RGB565
+// ==== WiFi ====
+const char* ssid = "Keenetic-7422";
+const char* password = "uPbkZw3T";
 
-int threshSegment = 60;
-int threshLED = 80;
+// ==== CAMERA PINS (AI Thinker) ====
+#define PWDN_GPIO_NUM     32
+#define RESET_GPIO_NUM    -1
+#define XCLK_GPIO_NUM      0
+#define SIOD_GPIO_NUM     26
+#define SIOC_GPIO_NUM     27
 
-// Таблица преобразования маски в цифру
-int maskToDigit[128];
+#define Y9_GPIO_NUM       35
+#define Y8_GPIO_NUM       34
+#define Y7_GPIO_NUM       39
+#define Y6_GPIO_NUM       36
+#define Y5_GPIO_NUM       21
+#define Y4_GPIO_NUM       19
+#define Y3_GPIO_NUM       18
+#define Y2_GPIO_NUM        5
+#define VSYNC_GPIO_NUM    25
+#define HREF_GPIO_NUM     23
+#define PCLK_GPIO_NUM     22
 
-void initMaskMap() {
-  for (int i=0; i<128; i++) maskToDigit[i] = -1;
-  maskToDigit[0b0111111] = 0;
-  maskToDigit[0b0000110] = 1;
-  maskToDigit[0b1011011] = 2;
-  maskToDigit[0b1001111] = 3;
-  maskToDigit[0b1100110] = 4;
-  maskToDigit[0b1101101] = 5;
-  maskToDigit[0b1111101] = 6;
-  maskToDigit[0b0000111] = 7;
-  maskToDigit[0b1111111] = 8;
-  maskToDigit[0b1101111] = 9;
+// ==== FLASH LED ====
+#define FLASH_GPIO 4
+
+WiFiServer server(80);
+
+void sendHomePage(WiFiClient &client) {
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html");
+  client.println("Connection: close\r\n");
+
+  client.println("<html><body style='font-family:Arial;'>");
+  client.println("<h2>ESP32-CAM Control</h2>");
+
+  // ---- Video ----
+  client.println("<img src='/stream' style='width:320px;border:1px solid #444'><br><br>");
+
+  client.println("</body></html>");
 }
 
-WebServer server(80);
-String lastResult = "";
+void handleStream(WiFiClient &client) {
+  const char *header =
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
+  client.print(header);
 
-// -----------------------------------------------------------
-// Функция считывания сегментов с изображения
-// -----------------------------------------------------------
-String readDisplay() {
-  camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) return "ERR_NO_FRAME";
-
-  int w = fb->width;
-  int h = fb->height;
-
-  String out = "";
-
-  // ---- ЦИФРЫ ----
-  for (int d=0; d<DIGITS; d++) {
-    int mask = 0;
-
-    for (int s=0; s<SEGMENTS; s++) {
-      Rect r = segPos[d][s];
-      int ax = ROI_X + r.x;
-      int ay = ROI_Y + r.y;
-      int aw = r.w, ah = r.h;
-
-      long sumB = 0;
-      int cnt = 0;
-
-      for(int yy=ay; yy<ay+ah; yy++){
-        for(int xx=ax; xx<ax+aw; xx++){
-          if(xx<0||yy<0||xx>=w||yy>=h) continue;
-
-          int idx = (yy * w + xx) * 2;
-          uint16_t pix = fb->buf[idx] | (fb->buf[idx+1] << 8);
-
-          int r5 = (pix >> 11) & 0x1F;
-          int g6 = (pix >> 5) & 0x3F;
-          int b5 = pix & 0x1F;
-
-          int R = (r5 * 255) / 31;
-          int G = (g6 * 255) / 63;
-          int B = (b5 * 255) / 31;
-
-          int gray = (R*30 + G*59 + B*11) / 100;
-
-          sumB += gray;
-          cnt++;
-        }
-      }
-
-      int avg = (cnt > 0) ? (sumB / cnt) : 0;
-      int on = (avg >= threshSegment);
-      mask |= (on << s);
-    }
-
-    int digit = maskToDigit[mask];
-    out += (digit < 0 ? "?" : String(digit));
-  }
-
-  // ---- LED индикаторы ----
-  out += " | LEDs:";
-  for (auto &led : topLEDs) {
-    int ax = ROI_X + led.x;
-    int ay = ROI_Y + led.y;
-
-    long sumB = 0;
-    int cnt = 0;
-
-    for(int yy=ay; yy<ay+led.h; yy++){
-      for(int xx=ax; xx<ax+led.w; xx++){
-        if(xx<0||yy<0||xx>=w||yy>=h) continue;
-
-        int idx = (yy*w + xx) * 2;
-        uint16_t pix = fb->buf[idx] | (fb->buf[idx+1] << 8);
-
-        int r5 = (pix >> 11) & 0x1F;
-        int g6 = (pix >> 5) & 0x3F;
-        int b5 = pix & 0x1F;
-
-        int R = (r5 * 255) / 31;
-        int G = (g6 * 255) / 63;
-        int B = (b5 * 255) / 31;
-
-        int gray = (R*30 + G*59 + B*11) / 100;
-        sumB += gray; cnt++;
-      }
-    }
-
-    int avg = (cnt > 0) ? sumB / cnt : 0;
-    out += (avg >= threshLED ? '1' : '0');
-  }
-
-  esp_camera_fb_return(fb);
-  lastResult = out;
-  return out;
-}
-
-// -----------------------------------------------------------
-// Web API
-// -----------------------------------------------------------
-void handleRoot() {
-  server.send(200, "text/plain", "ESP32-CAM 7seg");
-}
-
-void setupServer() {
-  server.on("/", handleRoot);
-
-  server.on("/read", [](){
-    server.send(200, "text/plain", readDisplay());
-  });
-
-  server.on("/press", [](){
-    if (!server.hasArg("key")) {
-      server.send(400, "text/plain", "no key");
+  while (client.connected()) {
+    camera_fb_t * fb = esp_camera_fb_get();
+    if (!fb) {
+      Serial.println("Camera capture failed");
       return;
     }
 
-    String key = server.arg("key");
-    int pin = -1;
+    client.printf("--frame\r\n");
+    client.printf("Content-Type: image/jpeg\r\n");
+    client.printf("Content-Length: %d\r\n\r\n", fb->len);
+    client.write(fb->buf, fb->len);
+    client.print("\r\n");
 
-    if (key == "plus")  pin = gpio_btn_plus;
-    if (key == "minus") pin = gpio_btn_minus;
-    if (key == "mode")  pin = gpio_btn_mode;
+    esp_camera_fb_return(fb);
+    
+  }
+}
 
-    if (pin < 0) {
-      server.send(400, "text/plain", "bad key");
-      return;
-    }
+void setup() {
+  Serial.begin(115200);
+  Serial.setDebugOutput(false);
 
-    digitalWrite(pin, HIGH);
-    delay(200);
-    digitalWrite(pin, LOW);
+  // ---- Flash LED ----
+  pinMode(FLASH_GPIO, OUTPUT);
+  digitalWrite(FLASH_GPIO, LOW);
 
-    server.send(200, "text/plain", "OK");
-  });
+  // ---- Camera config ----
+  camera_config_t config;
+  config.ledc_channel = LEDC_CHANNEL_0;
+  config.ledc_timer = LEDC_TIMER_0;
+  config.pin_d0 = Y2_GPIO_NUM;
+  config.pin_d1 = Y3_GPIO_NUM;
+  config.pin_d2 = Y4_GPIO_NUM;
+  config.pin_d3 = Y5_GPIO_NUM;
+  config.pin_d4 = Y6_GPIO_NUM;
+  config.pin_d5 = Y7_GPIO_NUM;
+  config.pin_d6 = Y8_GPIO_NUM;
+  config.pin_d7 = Y9_GPIO_NUM;
+  config.pin_xclk = XCLK_GPIO_NUM;
+  config.pin_pclk = PCLK_GPIO_NUM;
+  config.pin_vsync = VSYNC_GPIO_NUM;
+  config.pin_href = HREF_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
+  config.pin_pwdn = PWDN_GPIO_NUM;
+  config.pin_reset = RESET_GPIO_NUM;
+  config.xclk_freq_hz = 20000000;
+  config.pixel_format = PIXFORMAT_RGB565;
+
+  config.frame_size = FRAMESIZE_QVGA;
+  config.jpeg_quality = 20;
+  config.fb_count = 2;
+
+  // ---- Init camera ----
+  if (esp_camera_init(&config) != ESP_OK) {
+    Serial.println("Camera init failed");
+    return;
+  }
+
+  // ---- WiFi ----
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(300);
+  }
+
+  Serial.print("\nReady! Open: http://");
+  Serial.println(WiFi.localIP());
 
   server.begin();
 }
 
-// -----------------------------------------------------------
-// SETUP
-// -----------------------------------------------------------
-void setup() {
-  Serial.begin(115200);
-  initMaskMap();
+void loop() {
 
-  // Оптопары — HIGH активный (через транзистор)
-//   pinMode(gpio_btn_plus, OUTPUT);
-//   pinMode(gpio_btn_minus, OUTPUT);
-//   pinMode(gpio_btn_mode, OUTPUT);
-//   digitalWrite(gpio_btn_plus, LOW);
-//   digitalWrite(gpio_btn_minus, LOW);
-//   digitalWrite(gpio_btn_mode, LOW);
+  WiFiClient client = server.available();
+  if (!client) return;
 
-  // ---------------- Камера ESP32-CAM ----------------
-  camera_config_t config;
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer   = LEDC_TIMER_0;
-  config.pin_d0       = 5;
-  config.pin_d1       = 18;
-  config.pin_d2       = 19;
-  config.pin_d3       = 21;
-  config.pin_d4       = 36;
-  config.pin_d5       = 39;
-  config.pin_d6       = 34;
-  config.pin_d7       = 35;
-  config.pin_xclk     = 0;
-  config.pin_pclk     = 22;
-  config.pin_vsync    = 25;
-  config.pin_href     = 23;
-  config.pin_sccb_sda = 26;
-  config.pin_sccb_scl = 27;
-  config.pin_pwdn     = 32;
-  config.pin_reset    = -1;
-  config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_RGB565;
-  config.frame_size   = FRAME_SIZE;
-  config.jpeg_quality = 12;
-  config.fb_count     = 1;
+  String req = client.readStringUntil('\r');
+  client.flush();
 
-  esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
-    Serial.printf("Camera init failed: 0x%x\n", err);
+  // Home
+  if (req.indexOf("GET / ") != -1) {
+    sendHomePage(client);
     return;
   }
 
-  // ---------------- WiFi ----------------
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.print("Connecting WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  // Stream
+  if (req.indexOf("GET /stream") != -1) {
+    handleStream(client);
+    return;
   }
-  Serial.println();
-  Serial.print("IP: ");
-  Serial.println(WiFi.localIP());
 
-  setupServer();
-}
-
-// -----------------------------------------------------------
-// LOOP
-// -----------------------------------------------------------
-void loop() {
-  server.handleClient();
-
-  static unsigned long last = 0;
-  if (millis() - last > 1500) {
-    Serial.println(readDisplay());
-    last = millis();
-  }
 }

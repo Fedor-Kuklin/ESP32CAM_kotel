@@ -1,0 +1,96 @@
+
+[10] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[21] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+========================================
+       ESP32 PSRAM TEST PROGRAM
+========================================
+Chip: ESP32-D0WDQ6
+Chip Revision: 1
+CPU Frequency: 240 MHz
+SDK Version: v4.4.7-dirty
+Flash Size: 4 MB
+Flash Speed: 40 MHz
+
+========== PSRAM TEST ==========
+✓ PSRAM обнаружена!
+  Размер PSRAM: 4192123 байт (4.00 MB)
+  Свободно PSRAM: 4192123 байт (4.00 MB)
+  Минимальная свободная PSRAM: 4192123 байт (4.00 MB)
+
+========== MEMORY INFO ==========
+Размер Heap: 371288 байт (362.59 KB)
+Свободно Heap: 345616 байт (337.52 KB)
+Минимальная свободная Heap: 339888 байт (331.92 KB)
+Максимальный блок Heap: 114676 байт (111.99 KB)
+
+========== PSRAM CONFIGURATION ==========
+Флаги компиляции (если доступны):
+  BOARD_HAS_PSRAM: определен
+  CONFIG_SPIRAM_SUPPORT: определен
+  CONFIG_SPIRAM: определен
+  Режим PSRAM: неизвестен или не используется
+
+========== PSRAM ALLOCATION TEST ==========
+Тест 1: Выделение 1 KB в PSRAM
+  Успешно! Выделено: 1040 байт
+  Адрес: 0x0x3f800884
+  Проверка записи: ПРОЙДЕНА
+  Память освобождена
+
+Тест 2: Выделение 1 MB в PSRAM
+  Успешно! Выделено: 1048592 байт (1.00 MB)
+  Адрес: 0x0x3f800884
+  Заполнение памяти паттерном...
+  Проверка паттерна: ПРОЙДЕНА
+  Память освобождена
+
+Тест 3: Выделение и обнуление 64 KB в PSRAM (ps_calloc)
+  Успешно! Буфер выделен и обнулен
+  Проверка обнуления: ПРОЙДЕНА
+  Память освобождена
+
+========== HEAP vs PSRAM COMPARISON ==========
+Выделение 256 KB в Heap:
+  Успешно! Использовано Heap: 0 байт
+Выделение 256 KB в PSRAM:
+  Успешно! Использовано PSRAM: 262160 байт
+
+========== CAMERA PSRAM TEST ==========
+Для теста камеры требуется:
+1. ESP32-CAM с PSRAM (4MB обычно)
+2. Правильно подключенный модуль камеры
+3. Достаточное питание (не от USB компьютера)
+4. Включенная PSRAM в настройках проекта
+
+Проверка наличия PSRAM для камеры:
+✓ Достаточно PSRAM для камеры: 4.00 MB свободно
+
+========================================
+          TEST COMPLETE
+========================================
+
+[10] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[21] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[32] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[43] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[54] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[65] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[76] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[87] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[98] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[109] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[120] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[131] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[142] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[153] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[164] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[175] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[186] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[197] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[208] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[219] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[230] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[241] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[252] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[263] Heap free: 337.52 KB, PSRAM free: 4.00 MB
+[274] Heap free: 337.52 KB, PSRAM free: 4.00 MB
