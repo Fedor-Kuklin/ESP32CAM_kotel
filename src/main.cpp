@@ -480,20 +480,42 @@ void handleFrame() {
     drawBox(p, fb->width, r3, 0xF800); // Красный
   }
 
-  // Отправка BMP
+  // Отправка BMP (исправленный заголовок)
   uint32_t size = 54 + fb->len;
-  uint8_t h[54] = {
-    'B','M', size, size>>8, size>>16, size>>24, 0,0, 0,0, 54,0,0,0,
-    40,0,0,0, fb->width, fb->width>>8, 0,0, fb->height, fb->height>>8, 0,0,
-    1,0, 16,0
+  // Используем правильные типы для заголовка BMP
+  struct __attribute__((packed)) BMPHeader {
+    uint8_t signature[2] = {'B','M'};
+    uint32_t fileSize;
+    uint32_t reserved = 0;
+    uint32_t dataOffset = 54;
+    uint32_t headerSize = 40;
+    uint32_t width;
+    uint32_t height;
+    uint16_t planes = 1;
+    uint16_t bitsPerPixel = 16;
+    uint32_t compression = 3; // BI_BITFIELDS
+    uint32_t imageSize;
+    uint32_t xPixelsPerMeter = 0;
+    uint32_t yPixelsPerMeter = 0;
+    uint32_t colorsUsed = 0;
+    uint32_t colorsImportant = 0;
+    uint32_t redMask = 0xF800;
+    uint32_t greenMask = 0x07E0;
+    uint32_t blueMask = 0x001F;
   };
+  
+  BMPHeader header;
+  header.fileSize = size;
+  header.width = fb->width;
+  header.height = fb->height;
+  header.imageSize = fb->len;
 
   WiFiClient c = server.client();
   c.println("HTTP/1.1 200 OK");
   c.println("Content-Type: image/bmp");
   c.println("Connection: close");
   c.println();
-  c.write(h, 54);
+  c.write((const uint8_t*)&header, sizeof(header));
   c.write(fb->buf, fb->len);
 
   esp_camera_fb_return(fb);
@@ -634,169 +656,169 @@ void handleButtonRelease() {
 
 // ====================== ФУНКЦИИ DISCOVERY ======================
 void publishHomeAssistantDiscovery() {
-    DEBUG_PRINTLN("\n🔍 Publishing Home Assistant MQTT Discovery...");
+  DEBUG_PRINTLN("\n🔍 Publishing Home Assistant MQTT Discovery...");
+  
+  if (!mqttClient.connected()) {
+    DEBUG_PRINTLN("MQTT not connected, skipping...");
+    return;
+  }
+  
+  // Проверяем и логируем размер буфера
+  DEBUG_PRINT("Current MQTT buffer: ");
+  DEBUG_PRINT(mqttClient.getBufferSize());
+  DEBUG_PRINTLN(" bytes");
+  
+  const char* availabilityTopic = "home/meter/status";
+  const char* deviceId = "esp32_meter_reader";
+  
+  // 1. СЕНСОР ДИСПЛЕЯ (исправленная версия)
+  {
+    JsonDocument doc; // Вместо StaticJsonDocument<512>
     
-    if (!mqttClient.connected()) {
-        DEBUG_PRINTLN("MQTT not connected, skipping...");
-        return;
-    }
+    doc["name"] = "Показания индикатора";
+    doc["state_topic"] = MQTT_TOPIC_DISPLAY;
+    doc["unit_of_measurement"] = "";
+    doc["value_template"] = "{{ value }}";
+    doc["icon"] = "mdi:led-outline";
+    doc["unique_id"] = "esp32_meter_display";
+    doc["availability_topic"] = availabilityTopic;
+    doc["payload_available"] = "online";
+    doc["payload_not_available"] = "offline";
     
-    // Проверяем и логируем размер буфера
-    DEBUG_PRINT("Current MQTT buffer: ");
-    DEBUG_PRINT(mqttClient.getBufferSize());
-    DEBUG_PRINTLN(" bytes");
+    JsonObject device = doc["device"].to<JsonObject>(); // Вместо createNestedObject
+    device["name"] = DEVICE_NAME;
+    device["manufacturer"] = DEVICE_MANUFACTURER;
+    device["model"] = DEVICE_MODEL;
+    device["sw_version"] = DEVICE_SW_VERSION;
     
-    const char* availabilityTopic = "home/meter/status";
-    const char* deviceId = "esp32_meter_reader";
+    JsonArray identifiers = device["identifiers"].to<JsonArray>(); // Вместо createNestedArray
+    identifiers.add(deviceId);
     
-    // 1. СЕНСОР ДИСПЛЕЯ (ваш рабочий вариант)
-    {
-        StaticJsonDocument<512> doc;
-        
-        doc["name"] = "Показания индикатора";
-        doc["state_topic"] = MQTT_TOPIC_DISPLAY;
-        doc["unit_of_measurement"] = "";
-        doc["value_template"] = "{{ value }}";
-        doc["icon"] = "mdi:led-outline";
-        doc["unique_id"] = "esp32_meter_display";
-        doc["availability_topic"] = availabilityTopic;
-        doc["payload_available"] = "online";
-        doc["payload_not_available"] = "offline";
-        
-        JsonObject device = doc.createNestedObject("device");
-        device["name"] = DEVICE_NAME;
-        device["manufacturer"] = DEVICE_MANUFACTURER;
-        device["model"] = DEVICE_MODEL;
-        device["sw_version"] = DEVICE_SW_VERSION;
-        
-        JsonArray identifiers = device.createNestedArray("identifiers");
-        identifiers.add(deviceId);
-        
-        String payload;
-        serializeJson(doc, payload);
-        
-        String topic = String(MQTT_DISCOVERY_PREFIX) + "/sensor/meter_display/config";
-        
-        DEBUG_PRINT("📊 Display sensor (");
-        DEBUG_PRINT(payload.length());
-        DEBUG_PRINT("b)... ");
-        
-        bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
-        DEBUG_PRINTLN(success ? "✅" : "❌");
-        
-        delay(200);
-    }
+    String payload;
+    serializeJson(doc, payload);
     
-    // 2. СВЕТОДИОДЫ (оптимизированные с русскими названиями)
-    const char* ledDeviceClasses[] = {"power", "power", "power", "power", "power"};
-    const char* ledIcons[] = {"mdi:radiator", "mdi:water-boiler", "mdi:flash", "mdi:gauge", "mdi:electric-switch"};
+    String topic = String(MQTT_DISCOVERY_PREFIX) + "/sensor/meter_display/config";
     
-    for (int i = 0; i < 5; i++) {
-        StaticJsonDocument<512> doc;
-        
-        doc["name"] = ledNames[i];  // Ваши русские названия
-        doc["state_topic"] = String(MQTT_TOPIC_LED_PREFIX) + (i + 1);
-        doc["payload_on"] = "ON";
-        doc["payload_off"] = "OFF";
-        doc["device_class"] = ledDeviceClasses[i];
-        doc["icon"] = ledIcons[i];
-        doc["unique_id"] = "esp32_meter_led" + String(i + 1);
-        doc["availability_topic"] = availabilityTopic;
-        doc["payload_available"] = "online";
-        doc["payload_not_available"] = "offline";
-        
-        JsonObject device = doc.createNestedObject("device");
-        device["name"] = DEVICE_NAME;
-        JsonArray identifiers = device.createNestedArray("identifiers");
-        identifiers.add(deviceId);
-        
-        String payload;
-        serializeJson(doc, payload);
-        
-        String topic = String(MQTT_DISCOVERY_PREFIX) + "/binary_sensor/meter_led" + (i + 1) + "/config";
-        
-        DEBUG_PRINT("💡 ");
-        DEBUG_PRINT(ledNames[i]);
-        DEBUG_PRINT(" (");
-        DEBUG_PRINT(payload.length());
-        DEBUG_PRINT("b)... ");
-        
-        bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
-        DEBUG_PRINTLN(success ? "✅" : "❌");
-        
-        delay(200);
-    }
+    DEBUG_PRINT("📊 Display sensor (");
+    DEBUG_PRINT(payload.length());
+    DEBUG_PRINT("b)... ");
     
-    // 3. КНОПКИ УПРАВЛЕНИЯ
-    const char* buttonNames[] = {"Плюс", "Минус", "Ввод"};
-    const char* buttonTopicsSet[] = {
-        MQTT_TOPIC_RELAY_PLUS, 
-        MQTT_TOPIC_RELAY_MINUS, 
-        MQTT_TOPIC_RELAY_ENTER
-    };
-    const char* buttonTopicsState[] = {
-        MQTT_TOPIC_RELAY_PLUS_STATE, 
-        MQTT_TOPIC_RELAY_MINUS_STATE, 
-        MQTT_TOPIC_RELAY_ENTER_STATE
-    };
+    bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
+    DEBUG_PRINTLN(success ? "✅" : "❌");
     
-    for (int i = 0; i < 3; i++) {
-        StaticJsonDocument<512> doc;
-        
-        doc["name"] = buttonNames[i];
-        doc["command_topic"] = buttonTopicsSet[i];
-        doc["state_topic"] = buttonTopicsState[i];
-        doc["payload_press"] = "PRESS";
-        doc["optimistic"] = false;
-        doc["retain"] = false;
-        doc["icon"] = "mdi:button-pointer";
-        doc["unique_id"] = "esp32_meter_button" + String(i + 1);
-        doc["availability_topic"] = availabilityTopic;
-        doc["payload_available"] = "online";
-        doc["payload_not_available"] = "offline";
-        
-        JsonObject device = doc.createNestedObject("device");
-        device["name"] = DEVICE_NAME;
-        JsonArray identifiers = device.createNestedArray("identifiers");
-        identifiers.add(deviceId);
-        
-        String payload;
-        serializeJson(doc, payload);
-        
-        String topic = String(MQTT_DISCOVERY_PREFIX) + "/button/meter_button" + (i + 1) + "/config";
-        
-        DEBUG_PRINT("🔘 ");
-        DEBUG_PRINT(buttonNames[i]);
-        DEBUG_PRINT(" (");
-        DEBUG_PRINT(payload.length());
-        DEBUG_PRINT("b)... ");
-        
-        bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
-        DEBUG_PRINTLN(success ? "✅" : "❌");
-        
-        delay(200);
-    }
+    delay(200);
+  }
+  
+  // 2. СВЕТОДИОДЫ (исправленная версия)
+  const char* ledDeviceClasses[] = {"power", "power", "power", "power", "power"};
+  const char* ledIcons[] = {"mdi:radiator", "mdi:water-boiler", "mdi:flash", "mdi:gauge", "mdi:electric-switch"};
+  
+  for (int i = 0; i < 5; i++) {
+    JsonDocument doc; // Вместо StaticJsonDocument<512>
     
-    // 4. ПУБЛИКАЦИЯ НАЧАЛЬНЫХ ДАННЫХ
-    DEBUG_PRINTLN("\n📤 Publishing initial data...");
+    doc["name"] = ledNames[i];
+    doc["state_topic"] = String(MQTT_TOPIC_LED_PREFIX) + (i + 1);
+    doc["payload_on"] = "ON";
+    doc["payload_off"] = "OFF";
+    doc["device_class"] = ledDeviceClasses[i];
+    doc["icon"] = ledIcons[i];
+    doc["unique_id"] = "esp32_meter_led" + String(i + 1);
+    doc["availability_topic"] = availabilityTopic;
+    doc["payload_available"] = "online";
+    doc["payload_not_available"] = "offline";
     
-    // Дисплей
-    mqttClient.publish(MQTT_TOPIC_DISPLAY, "00", true);
+    JsonObject device = doc["device"].to<JsonObject>();
+    device["name"] = DEVICE_NAME;
+    JsonArray identifiers = device["identifiers"].to<JsonArray>();
+    identifiers.add(deviceId);
     
-    // Светодиоды
-    for (int i = 1; i <= 5; i++) {
-        String topic = String(MQTT_TOPIC_LED_PREFIX) + i;
-        mqttClient.publish(topic.c_str(), "OFF", true);
-    }
+    String payload;
+    serializeJson(doc, payload);
     
-    // Кнопки
-    for (int i = 0; i < 3; i++) {
-        mqttClient.publish(buttonTopicsState[i], "OFF", true);
-    }
+    String topic = String(MQTT_DISCOVERY_PREFIX) + "/binary_sensor/meter_led" + (i + 1) + "/config";
     
-    discoveryPublished = true;
-    DEBUG_PRINTLN("\n🎯 Discovery completed successfully!");
-    DEBUG_PRINTLN("Check Home Assistant: Devices & Services → MQTT");
+    DEBUG_PRINT("💡 ");
+    DEBUG_PRINT(ledNames[i]);
+    DEBUG_PRINT(" (");
+    DEBUG_PRINT(payload.length());
+    DEBUG_PRINT("b)... ");
+    
+    bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
+    DEBUG_PRINTLN(success ? "✅" : "❌");
+    
+    delay(200);
+  }
+  
+  // 3. КНОПКИ УПРАВЛЕНИЯ (исправленная версия)
+  const char* buttonNames[] = {"Плюс", "Минус", "Ввод"};
+  const char* buttonTopicsSet[] = {
+    MQTT_TOPIC_RELAY_PLUS, 
+    MQTT_TOPIC_RELAY_MINUS, 
+    MQTT_TOPIC_RELAY_ENTER
+  };
+  const char* buttonTopicsState[] = {
+    MQTT_TOPIC_RELAY_PLUS_STATE, 
+    MQTT_TOPIC_RELAY_MINUS_STATE, 
+    MQTT_TOPIC_RELAY_ENTER_STATE
+  };
+  
+  for (int i = 0; i < 3; i++) {
+    JsonDocument doc; // Вместо StaticJsonDocument<512>
+    
+    doc["name"] = buttonNames[i];
+    doc["command_topic"] = buttonTopicsSet[i];
+    doc["state_topic"] = buttonTopicsState[i];
+    doc["payload_press"] = "PRESS";
+    doc["optimistic"] = false;
+    doc["retain"] = false;
+    doc["icon"] = "mdi:button-pointer";
+    doc["unique_id"] = "esp32_meter_button" + String(i + 1);
+    doc["availability_topic"] = availabilityTopic;
+    doc["payload_available"] = "online";
+    doc["payload_not_available"] = "offline";
+    
+    JsonObject device = doc["device"].to<JsonObject>();
+    device["name"] = DEVICE_NAME;
+    JsonArray identifiers = device["identifiers"].to<JsonArray>();
+    identifiers.add(deviceId);
+    
+    String payload;
+    serializeJson(doc, payload);
+    
+    String topic = String(MQTT_DISCOVERY_PREFIX) + "/button/meter_button" + (i + 1) + "/config";
+    
+    DEBUG_PRINT("🔘 ");
+    DEBUG_PRINT(buttonNames[i]);
+    DEBUG_PRINT(" (");
+    DEBUG_PRINT(payload.length());
+    DEBUG_PRINT("b)... ");
+    
+    bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
+    DEBUG_PRINTLN(success ? "✅" : "❌");
+    
+    delay(200);
+  }
+  
+  // 4. ПУБЛИКАЦИЯ НАЧАЛЬНЫХ ДАННЫХ
+  DEBUG_PRINTLN("\n📤 Publishing initial data...");
+  
+  // Дисплей
+  mqttClient.publish(MQTT_TOPIC_DISPLAY, "00", true);
+  
+  // Светодиоды
+  for (int i = 1; i <= 5; i++) {
+    String topic = String(MQTT_TOPIC_LED_PREFIX) + i;
+    mqttClient.publish(topic.c_str(), "OFF", true);
+  }
+  
+  // Кнопки
+  for (int i = 0; i < 3; i++) {
+    mqttClient.publish(buttonTopicsState[i], "OFF", true);
+  }
+  
+  discoveryPublished = true;
+  DEBUG_PRINTLN("\n🎯 Discovery completed successfully!");
+  DEBUG_PRINTLN("Check Home Assistant: Devices & Services → MQTT");
 }
 
 // ====================== MQTT CALLBACK ======================
