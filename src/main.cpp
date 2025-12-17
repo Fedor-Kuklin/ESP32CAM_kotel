@@ -2,88 +2,159 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <WebServer.h>
-#include <WebSocketsServer.h>
-#include <base64.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include <config.h>
 
-// ---------------------- WiFi ----------------------
-const char* WIFI_SSID = "Keenetic-7422";
-const char* WIFI_PASS = "uPbkZw3T";
+// ====================== GPIO CONTROL ======================
+const int PIN_PLUS  = 14;   // Кнопка "Плюс"
+const int PIN_MINUS = 13;   // Кнопка "Минус"
+const int PIN_ENTER = 12;   // Кнопка "Ввод"
 
-// ---------------------- Оптопары ----------------------
-const int gpio_btn_plus  = 12;
-const int gpio_btn_minus = 13;
-const int gpio_btn_mode  = 14;
+// Текущее состояние пинов
+bool pinStates[3] = {false, false, false}; // [0]-plus, [1]-minus, [2]-enter
 
-// ---------------------- ROI настройки ----------------------
-int ROI_X = 10, ROI_Y = 10, ROI_W = 150, ROI_H = 100;
+// ====================== ROI ======================
+int ROI_X = 18;
+int ROI_Y = 44;
+int ROI_W = 140;
+int ROI_H = 70;
 
+// ====================== CAMERA ======================
 #define FRAME_SIZE FRAMESIZE_QQVGA
-#define PIXFORMAT PIXFORMAT_RGB565
+#define PIXFORMAT  PIXFORMAT_RGB565
 
-// ---------------------- ГЕОМЕТРИЯ СЕГМЕНТОВ ----------------------
-struct Rect { 
-    int x,y,w,h; 
-};
-
+// ====================== GEOMETRY ======================
+struct Rect { int x,y,w,h; };
 const int DIGITS = 2;
 const int SEGMENTS = 7;
 
 Rect segPos[DIGITS][SEGMENTS] = {
   {
-    {8,  6, 18, 8}, {26, 6, 8, 18}, {26, 28, 8, 18}, {8, 44, 18, 8},
-    {0, 28, 8, 18}, {0, 6, 8, 18}, {8, 26, 18, 8}
+    {57, 37, 6, 3}, 
+    {66, 42, 3, 6}, 
+    {63, 55, 3, 6}, 
+    {53, 63, 6, 3},
+    {50, 55, 3, 6}, 
+    {51, 41, 3, 6}, 
+    {55, 50, 6, 3}
   },
   {
-    {44, 6, 18, 8}, {62, 6, 8, 18}, {62, 28, 8, 18}, {44, 44, 18, 8},
-    {36, 28, 8, 18}, {36, 6, 8, 18}, {44, 26, 18, 8}
+    {82, 37, 6, 3}, 
+    {91, 42, 3, 6}, 
+    {88, 55, 3, 6}, 
+    {78, 63, 6, 3},
+    {75, 55, 3, 6}, 
+    {76, 41, 3, 6}, 
+    {80, 50, 6, 3}
   }
 };
 
-// ---------------------- Верхние LED ----------------------
 Rect topLEDs[] = {
-  {2, -6, 8, 8},
-  {30, -6, 8, 8},
-  {60, -6, 8, 8},
-  {88, -6, 8, 8}
+  {17,12,3,3},
+  {42,12,3,3},
+  {68,12,3,3},
+  {94,12,3,3},
+  {120,12,3,3}
 };
 
-int threshSegment = 60;
-int threshLED = 80;
+int threshSegment = 180;
+int threshLED     = 180;
 
-// Таблица преобразования маски в цифру
+// ====================== MASK ======================
+// Массив соответствия маски цифрам/символам
 int maskToDigit[128];
 
+// Функция для инициализации таблицы соответствий
 void initMaskMap() {
-  for (int i=0; i<128; i++) maskToDigit[i] = -1;
-  maskToDigit[0b0111111] = 0;
-  maskToDigit[0b0000110] = 1;
-  maskToDigit[0b1011011] = 2;
-  maskToDigit[0b1001111] = 3;
-  maskToDigit[0b1100110] = 4;
-  maskToDigit[0b1101101] = 5;
-  maskToDigit[0b1111101] = 6;
-  maskToDigit[0b0000111] = 7;
-  maskToDigit[0b1111111] = 8;
-  maskToDigit[0b1101111] = 9;
+  memset(maskToDigit, -1, sizeof(maskToDigit)); // Обнуляем весь массив
+
+  // Цифры
+  maskToDigit[0b0111111] = '0'; // 0
+  maskToDigit[0b0000110] = '1'; // 1
+  maskToDigit[0b1011011] = '2'; // 2
+  maskToDigit[0b1001111] = '3'; // 3
+  maskToDigit[0b1100110] = '4'; // 4
+  maskToDigit[0b1101101] = '5'; // 5
+  maskToDigit[0b1111101] = '6'; // 6
+  maskToDigit[0b0000111] = '7'; // 7
+  maskToDigit[0b1111111] = '8'; // 8
+  maskToDigit[0b1101111] = '9'; // 9
+
+  // Дополнительные символы
+  maskToDigit[0b0000001] = '-'; // Минус
+  maskToDigit[0b1110110] = 'F'; // Буква F
+  maskToDigit[0b00000001] = '_'; // Нижнее подчёркивание
+  maskToDigit[0b1000000] = '^'; // Верхняя черта (используем ^ для обозначения верхней черты)
 }
 
-WebServer server(80);
-WebSocketsServer webSocket = WebSocketsServer(81);
-String lastResult = "";
-String lastDigits = "--";
-String lastLEDs = "0000";
+// Конфигурация MQTT брокера
+const char* MQTT_BROKER = "10.9.8.8";
+const int   MQTT_PORT = 1883;
+const char* MQTT_CLIENT_ID = "esp32-cam-meter";
+const char* MQTT_TOPIC_DISPLAY = "home/meter/display"; // Значение с семисегментника
+const char* MQTT_TOPIC_LEDS = "home/meter/leds";       // Состояния всех светодиодов
+const char* MQTT_TOPIC_LED_PREFIX = "home/meter/led";  // Префикс для топиков каждого
+                                                        //  LED (добавляется номер 1-5)
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
 
-// -----------------------------------------------------------
-// Функция считывания сегментов с изображения
-// -----------------------------------------------------------
+// ====================== MQTT DISCOVERY ======================
+// Настройки для Home Assistant Discovery
+const char* MQTT_DISCOVERY_PREFIX = "homeassistant"; // Стандартный префикс
+const char* DEVICE_NAME = "ESP32-CAM";
+const char* DEVICE_MANUFACTURER = "Custom ESP32";
+const char* DEVICE_MODEL = "Camera Reader";
+const char* DEVICE_SW_VERSION = "1.1";
+
+// Массив для хранения состояний семисегментного индикатора (2 цифры)
+char segmentDigits[3] = "00"; // Хранит текущие цифры + нулевой терминатор
+
+// Флаги для отслеживания отправки конфигураций
+bool discoveryPublished = false;
+unsigned long lastDiscoveryAttempt = 0;
+
+// ====================== MQTT УПРАВЛЕНИЕ ВЫХОДАМИ ======================
+// Топики для управления выходами
+const char* MQTT_TOPIC_RELAY_PLUS = "home/meter/relay/plus/set";
+const char* MQTT_TOPIC_RELAY_MINUS = "home/meter/relay/minus/set";
+const char* MQTT_TOPIC_RELAY_ENTER = "home/meter/relay/enter/set";
+
+// Топики для статуса выходов (опционально)
+const char* MQTT_TOPIC_RELAY_PLUS_STATE = "home/meter/relay/plus/state";
+const char* MQTT_TOPIC_RELAY_MINUS_STATE = "home/meter/relay/minus/state";
+const char* MQTT_TOPIC_RELAY_ENTER_STATE = "home/meter/relay/enter/state";
+
+// Таймеры для импульсного управления (кнопка нажимается на время)
+const unsigned long BUTTON_PRESS_MS = 500; // Время нажатия кнопки в мс
+unsigned long buttonReleaseTime[3] = {0, 0, 0}; // [plus, minus, enter]
+bool buttonShouldRelease[3] = {false, false, false};
+
+// ====================== SERVER ======================
+WebServer server(80);
+
+// ====================== DRAW ======================
+inline void drawBox(uint16_t *buf, int w, Rect r, uint16_t color) {
+  for (int x=r.x; x<r.x+r.w; x++) {
+    if (r.y>=0 && r.y<w) buf[r.y*w + x] = color;
+    if (r.y+r.h>=0 && r.y+r.h<w) buf[(r.y+r.h)*w + x] = color;
+  }
+  for (int y=r.y; y<r.y+r.h; y++) {
+    if (r.x>=0 && r.x<w) buf[y*w + r.x] = color;
+    if (r.x+r.w>=0 && r.x+r.w<w) buf[y*w + r.x+r.w] = color;
+  }
+}
+
+String lastResult = "";
+
+// ====================== ФУНКЦИИ КАМЕРЫ ======================
 String readDisplay() {
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) return "ERR_NO_FRAME";
 
   int w = fb->width;
   int h = fb->height;
-  String digits = "";
-  String leds = "";
+  String out = "";
 
   // ---- ЦИФРЫ ----
   for (int d=0; d<DIGITS; d++) {
@@ -92,660 +163,911 @@ String readDisplay() {
       Rect r = segPos[d][s];
       int ax = ROI_X + r.x;
       int ay = ROI_Y + r.y;
-      int aw = r.w, ah = r.h;
+      long sumB = 0; int cnt = 0;
 
-      long sumB = 0;
-      int cnt = 0;
-
-      for(int yy=ay; yy<ay+ah; yy++){
-        for(int xx=ax; xx<ax+aw; xx++){
+      for(int yy=ay; yy<ay+r.h; yy++){
+        for(int xx=ax; xx<ax+r.w; xx++){
           if(xx<0||yy<0||xx>=w||yy>=h) continue;
-
-          int idx = (yy * w + xx) * 2;
+          int yy2 = (h - 1) - yy;
+          int idx = (yy2 * w + xx) * 2;
           uint16_t pix = fb->buf[idx] | (fb->buf[idx+1] << 8);
-
+          
           int r5 = (pix >> 11) & 0x1F;
           int g6 = (pix >> 5) & 0x3F;
           int b5 = pix & 0x1F;
-
-          int R = (r5 * 255) / 31;
-          int G = (g6 * 255) / 63;
-          int B = (b5 * 255) / 31;
-
-          int gray = (R*30 + G*59 + B*11) / 100;
-          sumB += gray;
-          cnt++;
+          
+          int gray = ((r5*255/31)*30 + (g6*255/63)*59 + (b5*255/31)*11) / 100;
+          sumB += gray; cnt++;
         }
       }
-
       int avg = (cnt > 0) ? (sumB / cnt) : 0;
-      int on = (avg >= threshSegment);
-      mask |= (on << s);
+      mask |= ((avg >= threshSegment) << s);
     }
-
     int digit = maskToDigit[mask];
-    digits += (digit < 0 ? "?" : String(digit));
+    out += (digit < 0 ? "?" : String(digit));
   }
 
   // ---- LED индикаторы ----
+  out += " | LEDs:";
   for (auto &led : topLEDs) {
     int ax = ROI_X + led.x;
     int ay = ROI_Y + led.y;
-
-    long sumB = 0;
-    int cnt = 0;
+    long sumB = 0; int cnt = 0;
 
     for(int yy=ay; yy<ay+led.h; yy++){
       for(int xx=ax; xx<ax+led.w; xx++){
         if(xx<0||yy<0||xx>=w||yy>=h) continue;
-
-        int idx = (yy*w + xx) * 2;
+        int yy2 = (h - 1) - yy;
+        int idx = (yy2 * w + xx) * 2;
         uint16_t pix = fb->buf[idx] | (fb->buf[idx+1] << 8);
-
-        int r5 = (pix >> 11) & 0x1F;
-        int g6 = (pix >> 5) & 0x3F;
-        int b5 = pix & 0x1F;
-
-        int R = (r5 * 255) / 31;
-        int G = (g6 * 255) / 63;
-        int B = (b5 * 255) / 31;
-
-        int gray = (R*30 + G*59 + B*11) / 100;
+        
+        int gray = (((pix >> 11) & 0x1F)*255/31*30 + 
+                   ((pix >> 5) & 0x3F)*255/63*59 + 
+                   (pix & 0x1F)*255/31*11) / 100;
         sumB += gray; cnt++;
       }
     }
-
     int avg = (cnt > 0) ? sumB / cnt : 0;
-    leds += (avg >= threshLED ? '1' : '0');
+    out += (avg >= threshLED ? '1' : '0');
   }
 
   esp_camera_fb_return(fb);
-  
-  lastDigits = digits;
-  lastLEDs = leds;
-  lastResult = digits + "|" + leds;
-  
-  return lastResult;
+  lastResult = out;
+  return out;
 }
 
-// -----------------------------------------------------------
-// WebSocket обработчик
-// -----------------------------------------------------------
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-  switch(type) {
-    case WStype_DISCONNECTED:
-      Serial.printf("[%u] Disconnected!\n", num);
-      break;
-    case WStype_CONNECTED:
-      Serial.printf("[%u] Connected from %s\n", num, webSocket.remoteIP(num).toString().c_str());
-      // Отправляем текущие данные при подключении
-      webSocket.sendTXT(num, "DIGITS:" + lastDigits);
-      webSocket.sendTXT(num, "LEDS:" + lastLEDs);
-      break;
-    case WStype_TEXT:
-      // Обработка команд
-      if (strncmp((char*)payload, "BUTTON:", 7) == 0) {
-        String btn = String((char*)payload + 7);
-        int pin = -1;
-        
-        if (btn == "plus")  pin = gpio_btn_plus;
-        if (btn == "minus") pin = gpio_btn_minus;
-        if (btn == "mode")  pin = gpio_btn_mode;
-        
-        if (pin >= 0) {
-          digitalWrite(pin, HIGH);
-          delay(200);
-          digitalWrite(pin, LOW);
-          webSocket.sendTXT(num, "BUTTON_PRESSED:" + btn);
-        }
-      }
-      break;
-  }
-}
+// ====================== ОБРАБОТЧИКИ HTTP ======================
 
-// -----------------------------------------------------------
-// HTML страница с визуализацией
-// -----------------------------------------------------------
-const char INDEX_HTML[] PROGMEM = R"rawliteral(
+// Главная страница управления
+void handleRoot() {
+  String html = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>ESP32-CAM 7-Segment Reader</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
-            background: #f0f0f0;
-        }
-        .container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-        .panel {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .display-panel {
-            flex: 1;
-            min-width: 300px;
-        }
-        .video-panel {
-            flex: 2;
-            min-width: 400px;
-        }
-        .controls-panel {
-            flex: 1;
-            min-width: 200px;
-        }
-        .display {
-            font-family: 'Courier New', monospace;
-            font-size: 72px;
-            text-align: center;
-            background: #000;
-            color: #0f0;
-            padding: 20px;
-            border-radius: 5px;
-            margin: 10px 0;
-        }
-        .led-indicator {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin: 0 5px;
-            border: 2px solid #333;
-        }
-        .led-on {
-            background: #f00;
-            box-shadow: 0 0 10px #f00;
-        }
-        .led-off {
-            background: #444;
-        }
-        .button {
-            padding: 10px 20px;
-            margin: 5px;
-            border: none;
-            border-radius: 5px;
-            background: #4CAF50;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .button:hover {
-            background: #45a049;
-        }
-        .button:active {
-            background: #3d8b40;
-        }
-        #videoCanvas {
-            border: 2px solid #333;
-            background: #000;
-            display: block;
-            max-width: 100%;
-        }
-        .roi-box {
-            position: absolute;
-            border: 2px solid #0f0;
-            pointer-events: none;
-        }
-        .segment-box {
-            position: absolute;
-            border: 1px solid rgba(255,255,0,0.3);
-            pointer-events: none;
-        }
-        .led-box {
-            position: absolute;
-            border: 1px solid rgba(255,0,0,0.5);
-            pointer-events: none;
-        }
-        .stats {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #666;
-        }
-    </style>
+  <title>ESP32-CAM Control</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial; margin: 20px; background: #f0f0f0; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+    h2 { color: #333; text-align: center; }
+    .button {
+      padding: 15px 30px; margin: 10px; border: none; border-radius: 8px;
+      font-size: 18px; font-weight: bold; cursor: pointer;
+      transition: all 0.3s; display: inline-block; width: 150px;
+    }
+    .button:active { transform: scale(0.95); }
+    .plus { background: #4CAF50; color: white; }
+    .minus { background: #f44336; color: white; }
+    .enter { background: #2196F3; color: white; }
+    .button.active { box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+    .status {
+      padding: 15px; margin: 20px 0; border-radius: 8px;
+      background: #e8f5e8; border: 1px solid #ddd;
+    }
+    .pin-status { font-weight: bold; font-size: 1.2em; }
+    .stream-container { text-align: center; margin: 20px 0; }
+    .link-button { 
+      display: block; padding: 10px; margin: 10px 0; 
+      background: #FF9800; color: white; text-align: center;
+      text-decoration: none; border-radius: 5px;
+    }
+  </style>
 </head>
 <body>
-    <h1>ESP32-CAM 7-Segment Display Reader</h1>
+  <div class="container">
+    <h2>ESP32-CAM Control Panel</h2>
     
-    <div class="container">
-        <div class="panel display-panel">
-            <h2>Display Reading</h2>
-            <div class="display" id="digitsDisplay">--</div>
-            
-            <h3>LED Indicators</h3>
-            <div id="ledDisplay">
-                <span class="led-indicator led-off"></span>
-                <span class="led-indicator led-off"></span>
-                <span class="led-indicator led-off"></span>
-                <span class="led-indicator led-off"></span>
-            </div>
-            
-            <div class="stats">
-                <div>Last Update: <span id="lastUpdate">Never</span></div>
-                <div>Frame Rate: <span id="fps">0</span> FPS</div>
-                <div>Raw Data: <span id="rawData">--</span></div>
-            </div>
-        </div>
-        
-        <div class="panel video-panel">
-            <h2>Live Camera View</h2>
-            <div style="position: relative; display: inline-block;">
-                <canvas id="videoCanvas" width="160" height="120"></canvas>
-                <div id="roiOverlay" style="position: absolute; top: 0; left: 0;"></div>
-            </div>
-            <div class="controls">
-                <button class="button" onclick="toggleVideo()" id="videoBtn">Start Video</button>
-                <button class="button" onclick="toggleOverlay()" id="overlayBtn">Hide Overlay</button>
-                <button class="button" onclick="takeSnapshot()">Snapshot</button>
-            </div>
-        </div>
-        
-        <div class="panel controls-panel">
-            <h2>Controls</h2>
-            <div>
-                <button class="button" onclick="pressButton('plus')">+ Button</button>
-                <button class="button" onclick="pressButton('minus')">- Button</button>
-                <button class="button" onclick="pressButton('mode')">Mode Button</button>
-            </div>
-            
-            <h3>ROI Settings</h3>
-            <div>
-                <label>X: <input type="number" id="roiX" value="20" style="width: 60px;"></label>
-                <label>Y: <input type="number" id="roiY" value="10" style="width: 60px;"></label><br>
-                <button class="button" onclick="updateROI()">Update ROI</button>
-                <button class="button" onclick="autoDetect()">Auto Detect</button>
-            </div>
-            
-            <h3>Thresholds</h3>
-            <div>
-                <label>Segment: <input type="range" id="threshSegment" min="0" max="255" value="60"></label>
-                <span id="threshSegmentVal">60</span><br>
-                <label>LED: <input type="range" id="threshLED" min="0" max="255" value="80"></label>
-                <span id="threshLEDVal">80</span>
-                <button class="button" onclick="updateThresholds()">Apply</button>
-            </div>
-        </div>
+    <div style="text-align: center;">
+      <h3>Virtual Buttons</h3>
+      <button id="btnPlus" class="button plus" 
+              onmousedown="controlPin('plus', true)" 
+              ontouchstart="controlPin('plus', true)"
+              onmouseup="controlPin('plus', false)" 
+              ontouchend="controlPin('plus', false)">
+        PLUS (GPIO14)
+      </button><br>
+      
+      <button id="btnMinus" class="button minus" 
+              onmousedown="controlPin('minus', true)" 
+              ontouchstart="controlPin('minus', true)"
+              onmouseup="controlPin('minus', false)" 
+              ontouchend="controlPin('minus', false)">
+        MINUS (GPIO13)
+      </button><br>
+      
+      <button id="btnEnter" class="button enter" 
+              onmousedown="controlPin('enter', true)" 
+              ontouchstart="controlPin('enter', true)"
+              onmouseup="controlPin('enter', false)" 
+              ontouchend="controlPin('enter', false)">
+        ENTER (GPIO12)
+      </button>
     </div>
+    
+    <div class="status">
+      <h3>Current Status</h3>
+      <p>GPIO14 (PLUS): <span id="pinPlus" class="pin-status">-</span></p>
+      <p>GPIO13 (MINUS): <span id="pinMinus" class="pin-status">-</span></p>
+      <p>GPIO12 (ENTER): <span id="pinEnter" class="pin-status">-</span></p>
+      <p>Last Display: <span id="lastResult">-</span></p>
+    </div>
+    
+    <div class="stream-container">
+      <h3>Camera Stream</h3>
+      <p>Stream starts automatically. Click below to view full screen:</p>
+      <a href="/stream" class="link-button">Open Video Stream Page</a>
+      <div style="margin-top: 15px;">
+        <img src="/frame?roi=1" width="320" id="streamImg">
+      </div>
+    </div>
+  </div>
 
-    <script>
-        const canvas = document.getElementById('videoCanvas');
-        const ctx = canvas.getContext('2d');
-        const roiOverlay = document.getElementById('roiOverlay');
-        const digitsDisplay = document.getElementById('digitsDisplay');
-        const ledDisplay = document.getElementById('ledDisplay');
-        
-        let ws;
-        let streaming = false;
-        let showOverlay = true;
-        let frameCount = 0;
-        let lastTime = Date.now();
-        
-        // Функция конвертации RGB565 в RGB888
-        function rgb565ToRgb888(rgb565Array, width, height) {
-            const imgData = ctx.createImageData(width, height);
-            const data = imgData.data;
-            
-            for (let i = 0; i < rgb565Array.length; i++) {
-                const pixel = rgb565Array[i];
-                const r5 = (pixel >> 11) & 0x1F;
-                const g6 = (pixel >> 5) & 0x3F;
-                const b5 = pixel & 0x1F;
-                
-                data[i * 4] = (r5 << 3) | (r5 >> 2);
-                data[i * 4 + 1] = (g6 << 2) | (g6 >> 4);
-                data[i * 4 + 2] = (b5 << 3) | (b5 >> 2);
-                data[i * 4 + 3] = 255;
-            }
-            
-            return imgData;
-        }
-        
-        // Инициализация WebSocket
-        function initWebSocket() {
-            ws = new WebSocket('ws://' + window.location.hostname + ':81/');
-            
-            ws.onopen = function() {
-                console.log('WebSocket connected');
-                document.getElementById('videoBtn').textContent = 'Stop Video';
-                streaming = true;
-                lastTime = Date.now();
-                frameCount = 0;
-            };
-            
-            ws.onmessage = function(event) {
-                if (event.data instanceof Blob) {
-                    // Бинарные данные (видео)
-                    const reader = new FileReader();
-                    reader.onload = function() {
-                        const arrayBuffer = reader.result;
-                        const rgb565Array = new Uint16Array(arrayBuffer);
-                        
-                        // Обновляем видео
-                        const imgData = rgb565ToRgb888(rgb565Array, canvas.width, canvas.height);
-                        ctx.putImageData(imgData, 0, 0);
-                        
-                        // Обновляем статистику
-                        frameCount++;
-                        const now = Date.now();
-                        if (now - lastTime >= 1000) {
-                            const fps = Math.round((frameCount * 1000) / (now - lastTime));
-                            document.getElementById('fps').textContent = fps;
-                            frameCount = 0;
-                            lastTime = now;
-                        }
-                        
-                        // Периодически запрашиваем данные с дисплея
-                        if (frameCount % 5 === 0) {
-                            ws.send('GET_DISPLAY');
-                        }
-                    };
-                    reader.readAsArrayBuffer(event.data);
-                } else if (typeof event.data === 'string') {
-                    // Текстовые сообщения
-                    const msg = event.data;
-                    console.log('Message:', msg);
-                    
-                    if (msg.startsWith('DIGITS:')) {
-                        const digits = msg.substring(7);
-                        digitsDisplay.textContent = digits;
-                        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-                    } else if (msg.startsWith('LEDS:')) {
-                        const leds = msg.substring(5);
-                        const ledElements = ledDisplay.querySelectorAll('.led-indicator');
-                        for (let i = 0; i < ledElements.length; i++) {
-                            if (i < leds.length) {
-                                ledElements[i].className = 'led-indicator ' + 
-                                    (leds[i] === '1' ? 'led-on' : 'led-off');
-                            }
-                        }
-                    } else if (msg.startsWith('RAW:')) {
-                        document.getElementById('rawData').textContent = msg.substring(4);
-                    }
-                }
-            };
-            
-            ws.onerror = function(error) {
-                console.error('WebSocket error:', error);
-            };
-            
-            ws.onclose = function() {
-                console.log('WebSocket disconnected');
-                if (streaming) {
-                    document.getElementById('videoBtn').textContent = 'Start Video';
-                    streaming = false;
-                    setTimeout(initWebSocket, 2000);
-                }
-            };
-        }
-        
-        function toggleVideo() {
-            if (streaming) {
-                ws.close();
-                streaming = false;
-                document.getElementById('videoBtn').textContent = 'Start Video';
-            } else {
-                initWebSocket();
-            }
-        }
-        
-        function toggleOverlay() {
-            showOverlay = !showOverlay;
-            roiOverlay.style.display = showOverlay ? 'block' : 'none';
-            document.getElementById('overlayBtn').textContent = 
-                showOverlay ? 'Hide Overlay' : 'Show Overlay';
-        }
-        
-        function pressButton(btn) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send('BUTTON:' + btn);
-            }
-        }
-        
-        function updateROI() {
-            const x = document.getElementById('roiX').value;
-            const y = document.getElementById('roiY').value;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send('SET_ROI:' + x + ',' + y);
-            }
-        }
-        
-        function updateThresholds() {
-            const seg = document.getElementById('threshSegment').value;
-            const led = document.getElementById('threshLED').value;
-            document.getElementById('threshSegmentVal').textContent = seg;
-            document.getElementById('threshLEDVal').textContent = led;
-            
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send('SET_THRESH:' + seg + ',' + led);
-            }
-        }
-        
-        function autoDetect() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send('AUTO_DETECT');
-            }
-        }
-        
-        function takeSnapshot() {
-            const link = document.createElement('a');
-            link.download = 'snapshot_' + new Date().getTime() + '.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        }
-        
-        // Обновляем значения ползунков
-        document.getElementById('threshSegment').oninput = function() {
-            document.getElementById('threshSegmentVal').textContent = this.value;
-        };
-        
-        document.getElementById('threshLED').oninput = function() {
-            document.getElementById('threshLEDVal').textContent = this.value;
-        };
-        
-        // Инициализация
-        window.onload = function() {
-            console.log('7-Segment Reader loaded');
-        };
-    </script>
-</body>
-</html>
-)rawliteral";
-
-// -----------------------------------------------------------
-// Web API обработчики
-// -----------------------------------------------------------
-void handleRoot() {
-  server.send(200, "text/html", INDEX_HTML);
-}
-
-void setupServer() {
-  server.on("/", handleRoot);
-
-  server.on("/read", [](){
-    server.send(200, "text/plain", readDisplay());
-  });
-
-  server.on("/read_json", [](){
-    String json = "{";
-    json += "\"digits\":\"" + lastDigits + "\",";
-    json += "\"leds\":\"" + lastLEDs + "\",";
-    json += "\"roi_x\":" + String(ROI_X) + ",";
-    json += "\"roi_y\":" + String(ROI_Y) + ",";
-    json += "\"thresh_segment\":" + String(threshSegment) + ",";
-    json += "\"thresh_led\":" + String(threshLED);
-    json += "}";
-    server.send(200, "application/json", json);
-  });
-
-  server.on("/press", [](){
-    if (!server.hasArg("key")) {
-      server.send(400, "text/plain", "no key");
-      return;
-    }
-
-    String key = server.arg("key");
-    int pin = -1;
-
-    if (key == "plus")  pin = gpio_btn_plus;
-    if (key == "minus") pin = gpio_btn_minus;
-    if (key == "mode")  pin = gpio_btn_mode;
-
-    if (pin < 0) {
-      server.send(400, "text/plain", "bad key");
-      return;
-    }
-
-    digitalWrite(pin, HIGH);
-    delay(200);
-    digitalWrite(pin, LOW);
-
-    server.send(200, "text/plain", "OK");
-  });
-
-  server.on("/set_roi", [](){
-    if (server.hasArg("x") && server.hasArg("y")) {
-      ROI_X = server.arg("x").toInt();
-      ROI_Y = server.arg("y").toInt();
-      server.send(200, "text/plain", "OK");
-    } else {
-      server.send(400, "text/plain", "Missing x or y");
-    }
-  });
-
-  server.on("/set_thresh", [](){
-    if (server.hasArg("segment") && server.hasArg("led")) {
-      threshSegment = server.arg("segment").toInt();
-      threshLED = server.arg("led").toInt();
-      server.send(200, "text/plain", "OK");
-    } else {
-      server.send(400, "text/plain", "Missing parameters");
-    }
-  });
-
-  server.on("/snapshot", [](){
-    camera_fb_t *fb = esp_camera_fb_get();
-    if (!fb) {
-      server.send(500, "text/plain", "Failed to capture");
-      return;
-    }
-
-    String encoded = base64::encode(fb->buf, fb->len);
-    server.send(200, "text/plain", encoded);
-    esp_camera_fb_return(fb);
-  });
-
-  server.begin();
-}
-
-// -----------------------------------------------------------
-// SETUP
-// -----------------------------------------------------------
-void setup() {
-  Serial.begin(115200);
-  initMaskMap();
-
-  // Оптопары
-  pinMode(gpio_btn_plus, OUTPUT);
-  pinMode(gpio_btn_minus, OUTPUT);
-  pinMode(gpio_btn_mode, OUTPUT);
-  digitalWrite(gpio_btn_plus, LOW);
-  digitalWrite(gpio_btn_minus, LOW);
-  digitalWrite(gpio_btn_mode, LOW);
-
-  // ---------------- Камера ESP32-CAM ----------------
-  camera_config_t config;
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer   = LEDC_TIMER_0;
-  config.pin_d0       = 5;   // Y2_GPIO_NUM
-  config.pin_d1       = 18;  // Y3_GPIO_NUM
-  config.pin_d2       = 19;  // Y4_GPIO_NUM
-  config.pin_d3       = 21;  // Y5_GPIO_NUM
-  config.pin_d4       = 36;  // Y6_GPIO_NUM
-  config.pin_d5       = 39;  // Y7_GPIO_NUM
-  config.pin_d6       = 34;  // Y8_GPIO_NUM
-  config.pin_d7       = 35;  // Y9_GPIO_NUM
-  config.pin_xclk     = 0;
-  config.pin_pclk     = 22;
-  config.pin_vsync    = 25;
-  config.pin_href     = 23;
-  config.pin_sccb_sda = 26;
-  config.pin_sccb_scl = 27;
-  config.pin_pwdn     = 32;
-  config.pin_reset    = -1;
-  config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_RGB565;
-  config.frame_size   = FRAMESIZE_QQVGA;
-  config.jpeg_quality = 0;
-  config.fb_count     = 2;
-  config.fb_location  = CAMERA_FB_IN_PSRAM;
-  config.grab_mode    = CAMERA_GRAB_LATEST;
-
-  esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
-    Serial.printf("Camera init failed: 0x%x\n", err);
-    return;
-  }
-
-  // ---------------- WiFi ----------------
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.print("Connecting WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  Serial.print("IP: ");
-  Serial.println(WiFi.localIP());
-
-  setupServer();
-  
-  // Инициализация WebSocket
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
-}
-
-// -----------------------------------------------------------
-// LOOP
-// -----------------------------------------------------------
-void loop() {
-  server.handleClient();
-  webSocket.loop();
-
-  // Отправка видеопотока через WebSocket
-  static uint32_t lastFrameTime = 0;
-  static uint32_t lastReadTime = 0;
-  
-  if (webSocket.connectedClients() > 0) {
-    // Отправка видео (5 FPS)
-    if (millis() - lastFrameTime > 200) {
-      camera_fb_t *fb = esp_camera_fb_get();
-      if (fb && fb->format == PIXFORMAT_RGB565) {
-        webSocket.broadcastBIN(fb->buf, fb->len);
-        esp_camera_fb_return(fb);
-        lastFrameTime = millis();
+  <script>
+    let updateInterval;
+    
+    function controlPin(pin, state) {
+      fetch(`/control?pin=${pin}&state=${state ? 1 : 0}`)
+        .then(r => r.text())
+        .then(() => updateStatus());
+      
+      // Визуальная обратная связь
+      const btn = document.getElementById(`btn${pin.charAt(0).toUpperCase() + pin.slice(1)}`);
+      if (state) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
       }
     }
     
-    // Чтение дисплея (1 раз в секунду)
-    if (millis() - lastReadTime > 1000) {
-      String result = readDisplay();
-      webSocket.broadcastTXT("DIGITS:" + lastDigits);
-      webSocket.broadcastTXT("LEDS:" + lastLEDs);
-      webSocket.broadcastTXT("RAW:" + result);
-      lastReadTime = millis();
+    function updateStatus() {
+      fetch('/pinstatus')
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('pinPlus').textContent = data.plus ? 'ACTIVE' : 'INACTIVE';
+          document.getElementById('pinMinus').textContent = data.minus ? 'ACTIVE' : 'INACTIVE';
+          document.getElementById('pinEnter').textContent = data.enter ? 'ACTIVE' : 'INACTIVE';
+          document.getElementById('lastResult').textContent = data.last_display || '-';
+          
+          // Обновляем изображение потока
+          document.getElementById('streamImg').src = `/frame?roi=1&t=${Date.now()}`;
+        });
+    }
+    
+    // Автообновление статуса и изображения
+    function startAutoUpdate() {
+      updateInterval = setInterval(updateStatus, 500); // Обновление каждые 500мс
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+      updateStatus();
+      startAutoUpdate();
+    });
+  </script>
+</body>
+</html>
+)rawliteral";
+  
+  server.send(200, "text/html", html);
+}
+
+// Страница с потоковым видео (отдельная)
+void handleStream() {
+  String html = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32-CAM Live Stream</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; padding: 0; background: #000; text-align: center; }
+    .container { max-width: 100%; margin: 0 auto; padding: 10px; }
+    h1 { color: white; margin: 10px; }
+    .back-link { 
+      display: inline-block; padding: 10px 20px; margin: 10px; 
+      background: #2196F3; color: white; text-decoration: none;
+      border-radius: 5px; font-size: 16px;
+    }
+    img { max-width: 100%; height: auto; border: 2px solid #555; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ESP32-CAM Live Stream</h1>
+    <a href="/" class="back-link">Back to Control Panel</a>
+    <div style="margin-top: 20px;">
+      <img id="stream" src="/frame?roi=1">
+    </div>
+  </div>
+  
+  <script>
+    // Автоматическое обновление потока
+    function updateStream() {
+      document.getElementById('stream').src = `/frame?roi=1&t=${Date.now()}`;
+    }
+    
+    // Обновление каждые 100мс для плавного потока
+    setInterval(updateStream, 100);
+    
+    // Начальное обновление
+    updateStream();
+  </script>
+</body>
+</html>
+)rawliteral";
+  
+  server.send(200, "text/html", html);
+}
+
+// Обработчик управления пинами (исправленный)
+void handleControl() {
+  if (server.hasArg("pin") && server.hasArg("state")) {
+    String pin = server.arg("pin");
+    bool state = server.arg("state").toInt() == 1;
+    
+    // Обновляем состояние пинов
+    if (pin == "plus") {
+      pinStates[0] = state;
+      digitalWrite(PIN_PLUS, state ? HIGH : LOW);
+    } 
+    else if (pin == "minus") {
+      pinStates[1] = state;
+      digitalWrite(PIN_MINUS, state ? HIGH : LOW);
+    } 
+    else if (pin == "enter") {
+      pinStates[2] = state;
+      digitalWrite(PIN_ENTER, state ? HIGH : LOW);
+    }
+    
+    server.send(200, "text/plain", "OK");
+  } else {
+    server.send(400, "text/plain", "Missing parameters");
+  }
+}
+
+// JSON статус пинов
+void handlePinStatus() {
+  String json = "{";
+  json += "\"plus\":" + String(pinStates[0] ? "true" : "false") + ",";
+  json += "\"minus\":" + String(pinStates[1] ? "true" : "false") + ",";
+  json += "\"enter\":" + String(pinStates[2] ? "true" : "false") + ",";
+  json += "\"last_display\":\"" + lastResult + "\"";
+  json += "}";
+  
+  server.send(200, "application/json", json);
+}
+
+// Обработчик видео (упрощенный)
+void handleFrame() {
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) {
+    server.send(500, "text/plain", "Camera error");
+    return;
+  }
+
+  // Всегда рисуем ROI
+  uint16_t *p = (uint16_t*)fb->buf;
+  int H = fb->height;
+  
+  // ROI прямоугольник
+  Rect r = { ROI_X, ROI_Y, ROI_W, ROI_H };
+  r.y = H - (r.y + r.h);
+  drawBox(p, fb->width, r, 0x07E0); // Зеленый
+
+  // Сегменты
+  for (auto &d : segPos) {
+    for (auto &s : d) {
+      Rect r2;
+      r2.x = ROI_X + s.x;
+      r2.y = ROI_Y + s.y;
+      r2.w = s.w;
+      r2.h = s.h;
+      r2.y = H - (r2.y + r2.h);
+      drawBox(p, fb->width, r2, 0xFFE0); // Желтый
     }
   }
 
-  // Вывод в Serial для отладки
-  static unsigned long lastSerialPrint = 0;
-  if (millis() - lastSerialPrint > 2000) {
-    Serial.println("Display: " + lastResult);
-    lastSerialPrint = millis();
+  // LED индикаторы
+  for (auto &l : topLEDs) {
+    Rect r3;
+    r3.x = ROI_X + l.x;
+    r3.y = ROI_Y + l.y;
+    r3.w = l.w;
+    r3.h = l.h;
+    r3.y = H - (r3.y + r3.h);
+    drawBox(p, fb->width, r3, 0xF800); // Красный
   }
+
+  // Отправка BMP
+  uint32_t size = 54 + fb->len;
+  uint8_t h[54] = {
+    'B','M', size, size>>8, size>>16, size>>24, 0,0, 0,0, 54,0,0,0,
+    40,0,0,0, fb->width, fb->width>>8, 0,0, fb->height, fb->height>>8, 0,0,
+    1,0, 16,0
+  };
+
+  WiFiClient c = server.client();
+  c.println("HTTP/1.1 200 OK");
+  c.println("Content-Type: image/bmp");
+  c.println("Connection: close");
+  c.println();
+  c.write(h, 54);
+  c.write(fb->buf, fb->len);
+
+  esp_camera_fb_return(fb);
+}
+
+// Маппинг индикаторов на названия для Home Assistant
+const char* ledNames[] = {
+    "Контур отопления",     // LED_1 Контур отопления
+    "Контур ГВС",         // LED_2 Контур ГВС
+    "кВт",               // LED_3 «кВт»
+    "Давление в отоплении", // LED_4 Давление в отоплении
+    "Контактор"         // LED_5 Контактор
+};
+
+// ====================== ФУНКЦИИ MQTT ======================
+void connectToMqtt() {
+    DEBUG_PRINT("Connecting to MQTT...");
+    
+    if (mqttClient.connected()) {
+        mqttClient.disconnect();
+        delay(100);
+    }
+    
+    // Проверяем размер буфера
+    if (mqttClient.getBufferSize() < 1024) {
+        DEBUG_PRINTLN("\n⚠️  Buffer size too small, setting to 1024...");
+        mqttClient.setBufferSize(1024);
+    }
+    
+    unsigned long startTime = millis();
+    int attempts = 0;
+    
+    while (!mqttClient.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS) && attempts < 5) {
+        attempts++;
+        DEBUG_PRINT(".");
+        delay(2000);
+        
+        if (attempts >= 3) {
+            DEBUG_PRINTLN("\n⚠️  Multiple failures, checking connection...");
+            // Можно добавить сброс WiFi при необходимости
+        }
+    }
+    
+    if (mqttClient.connected()) {
+        DEBUG_PRINTLN(" ✅");
+        DEBUG_PRINT("Connected in ");
+        DEBUG_PRINT(millis() - startTime);
+        DEBUG_PRINTLN(" ms");
+        DEBUG_PRINT("MQTT buffer size: ");
+        DEBUG_PRINTLN(mqttClient.getBufferSize());
+        
+        // Подписываемся на топики управления
+        mqttClient.subscribe(MQTT_TOPIC_RELAY_PLUS);
+        mqttClient.subscribe(MQTT_TOPIC_RELAY_MINUS);
+        mqttClient.subscribe(MQTT_TOPIC_RELAY_ENTER);
+        
+        // Сразу публикуем статус
+        mqttClient.publish("home/meter/status", "online", true);
+        
+    } else {
+        DEBUG_PRINTLN(" ❌");
+        DEBUG_PRINT("Failed after ");
+        DEBUG_PRINT(attempts);
+        DEBUG_PRINTLN(" attempts");
+        DEBUG_PRINT("Error code: ");
+        DEBUG_PRINTLN(mqttClient.state());
+    }
+}
+
+void publishMqttData(const String& displayValue, const String& ledStates) {
+    if (!mqttClient.connected()) return;
+    
+    // 1. Извлекаем цифры из семисегментного индикатора
+    if (displayValue.length() >= 2) {
+        String twoDigits = displayValue.substring(0, 2);
+        
+        // Публикуем только если значение изменилось
+        if (twoDigits != String(segmentDigits)) {
+            strncpy(segmentDigits, twoDigits.c_str(), sizeof(segmentDigits)-1);
+            mqttClient.publish(MQTT_TOPIC_DISPLAY, segmentDigits, true); // retain=true
+            DEBUG_PRINTLN("Published to " + String(MQTT_TOPIC_DISPLAY) + ": " + twoDigits);
+        }
+    }
+
+    // 2. Обрабатываем состояния светодиодов
+    if (ledStates.startsWith(" | LEDs:")) {
+        String states = ledStates.substring(8); // Получаем подстроку после " | LEDs:"
+        
+        // Публикуем все состояния в одном топике
+        mqttClient.publish(MQTT_TOPIC_LEDS, ledStates.c_str(), true);
+        
+        // Публикуем каждый светодиод в отдельный топик
+        for (int i = 0; i < 5 && i < states.length(); i++) {
+            char stateChar = states[i];
+            String topic = String(MQTT_TOPIC_LED_PREFIX) + (i + 1);
+            String payload = (stateChar == '1') ? "ON" : "OFF";
+            
+            mqttClient.publish(topic.c_str(), payload.c_str(), true); // retain=true
+            
+            // Для отладки - логируем изменения
+            static char lastLedStates[6] = "00000";
+            if (stateChar != lastLedStates[i]) {
+                DEBUG_PRINTLN("LED " + String(i+1) + " (" + ledNames[i] + "): " + payload);
+                lastLedStates[i] = stateChar;
+            }
+        }
+    }
+}
+
+// ====================== УПРАВЛЕНИЕ КНОПКАМИ ======================
+void handleButtonRelease() {
+    unsigned long currentTime = millis();
+    
+    for (int i = 0; i < 3; i++) {
+        if (buttonShouldRelease[i] && currentTime >= buttonReleaseTime[i]) {
+            switch(i) {
+                case 0: // PLUS
+                    digitalWrite(PIN_PLUS, LOW);
+                    pinStates[0] = false;
+                    mqttClient.publish(MQTT_TOPIC_RELAY_PLUS_STATE, "OFF", true);
+                    break;
+                case 1: // MINUS
+                    digitalWrite(PIN_MINUS, LOW);
+                    pinStates[1] = false;
+                    mqttClient.publish(MQTT_TOPIC_RELAY_MINUS_STATE, "OFF", true);
+                    break;
+                case 2: // ENTER
+                    digitalWrite(PIN_ENTER, LOW);
+                    pinStates[2] = false;
+                    mqttClient.publish(MQTT_TOPIC_RELAY_ENTER_STATE, "OFF", true);
+                    break;
+            }
+            buttonShouldRelease[i] = false;
+            DEBUG_PRINTLN("Button " + String(i) + " released automatically");
+        }
+    }
+}
+
+// ====================== ФУНКЦИИ DISCOVERY ======================
+void publishHomeAssistantDiscovery() {
+    DEBUG_PRINTLN("\n🔍 Publishing Home Assistant MQTT Discovery...");
+    
+    if (!mqttClient.connected()) {
+        DEBUG_PRINTLN("MQTT not connected, skipping...");
+        return;
+    }
+    
+    // Проверяем и логируем размер буфера
+    DEBUG_PRINT("Current MQTT buffer: ");
+    DEBUG_PRINT(mqttClient.getBufferSize());
+    DEBUG_PRINTLN(" bytes");
+    
+    const char* availabilityTopic = "home/meter/status";
+    const char* deviceId = "esp32_meter_reader";
+    
+    // 1. СЕНСОР ДИСПЛЕЯ (ваш рабочий вариант)
+    {
+        StaticJsonDocument<512> doc;
+        
+        doc["name"] = "Показания индикатора";
+        doc["state_topic"] = MQTT_TOPIC_DISPLAY;
+        doc["unit_of_measurement"] = "";
+        doc["value_template"] = "{{ value }}";
+        doc["icon"] = "mdi:led-outline";
+        doc["unique_id"] = "esp32_meter_display";
+        doc["availability_topic"] = availabilityTopic;
+        doc["payload_available"] = "online";
+        doc["payload_not_available"] = "offline";
+        
+        JsonObject device = doc.createNestedObject("device");
+        device["name"] = DEVICE_NAME;
+        device["manufacturer"] = DEVICE_MANUFACTURER;
+        device["model"] = DEVICE_MODEL;
+        device["sw_version"] = DEVICE_SW_VERSION;
+        
+        JsonArray identifiers = device.createNestedArray("identifiers");
+        identifiers.add(deviceId);
+        
+        String payload;
+        serializeJson(doc, payload);
+        
+        String topic = String(MQTT_DISCOVERY_PREFIX) + "/sensor/meter_display/config";
+        
+        DEBUG_PRINT("📊 Display sensor (");
+        DEBUG_PRINT(payload.length());
+        DEBUG_PRINT("b)... ");
+        
+        bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
+        DEBUG_PRINTLN(success ? "✅" : "❌");
+        
+        delay(200);
+    }
+    
+    // 2. СВЕТОДИОДЫ (оптимизированные с русскими названиями)
+    const char* ledDeviceClasses[] = {"power", "power", "power", "power", "power"};
+    const char* ledIcons[] = {"mdi:radiator", "mdi:water-boiler", "mdi:flash", "mdi:gauge", "mdi:electric-switch"};
+    
+    for (int i = 0; i < 5; i++) {
+        StaticJsonDocument<512> doc;
+        
+        doc["name"] = ledNames[i];  // Ваши русские названия
+        doc["state_topic"] = String(MQTT_TOPIC_LED_PREFIX) + (i + 1);
+        doc["payload_on"] = "ON";
+        doc["payload_off"] = "OFF";
+        doc["device_class"] = ledDeviceClasses[i];
+        doc["icon"] = ledIcons[i];
+        doc["unique_id"] = "esp32_meter_led" + String(i + 1);
+        doc["availability_topic"] = availabilityTopic;
+        doc["payload_available"] = "online";
+        doc["payload_not_available"] = "offline";
+        
+        JsonObject device = doc.createNestedObject("device");
+        device["name"] = DEVICE_NAME;
+        JsonArray identifiers = device.createNestedArray("identifiers");
+        identifiers.add(deviceId);
+        
+        String payload;
+        serializeJson(doc, payload);
+        
+        String topic = String(MQTT_DISCOVERY_PREFIX) + "/binary_sensor/meter_led" + (i + 1) + "/config";
+        
+        DEBUG_PRINT("💡 ");
+        DEBUG_PRINT(ledNames[i]);
+        DEBUG_PRINT(" (");
+        DEBUG_PRINT(payload.length());
+        DEBUG_PRINT("b)... ");
+        
+        bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
+        DEBUG_PRINTLN(success ? "✅" : "❌");
+        
+        delay(200);
+    }
+    
+    // 3. КНОПКИ УПРАВЛЕНИЯ
+    const char* buttonNames[] = {"Плюс", "Минус", "Ввод"};
+    const char* buttonTopicsSet[] = {
+        MQTT_TOPIC_RELAY_PLUS, 
+        MQTT_TOPIC_RELAY_MINUS, 
+        MQTT_TOPIC_RELAY_ENTER
+    };
+    const char* buttonTopicsState[] = {
+        MQTT_TOPIC_RELAY_PLUS_STATE, 
+        MQTT_TOPIC_RELAY_MINUS_STATE, 
+        MQTT_TOPIC_RELAY_ENTER_STATE
+    };
+    
+    for (int i = 0; i < 3; i++) {
+        StaticJsonDocument<512> doc;
+        
+        doc["name"] = buttonNames[i];
+        doc["command_topic"] = buttonTopicsSet[i];
+        doc["state_topic"] = buttonTopicsState[i];
+        doc["payload_press"] = "PRESS";
+        doc["optimistic"] = false;
+        doc["retain"] = false;
+        doc["icon"] = "mdi:button-pointer";
+        doc["unique_id"] = "esp32_meter_button" + String(i + 1);
+        doc["availability_topic"] = availabilityTopic;
+        doc["payload_available"] = "online";
+        doc["payload_not_available"] = "offline";
+        
+        JsonObject device = doc.createNestedObject("device");
+        device["name"] = DEVICE_NAME;
+        JsonArray identifiers = device.createNestedArray("identifiers");
+        identifiers.add(deviceId);
+        
+        String payload;
+        serializeJson(doc, payload);
+        
+        String topic = String(MQTT_DISCOVERY_PREFIX) + "/button/meter_button" + (i + 1) + "/config";
+        
+        DEBUG_PRINT("🔘 ");
+        DEBUG_PRINT(buttonNames[i]);
+        DEBUG_PRINT(" (");
+        DEBUG_PRINT(payload.length());
+        DEBUG_PRINT("b)... ");
+        
+        bool success = mqttClient.publish(topic.c_str(), payload.c_str(), true);
+        DEBUG_PRINTLN(success ? "✅" : "❌");
+        
+        delay(200);
+    }
+    
+    // 4. ПУБЛИКАЦИЯ НАЧАЛЬНЫХ ДАННЫХ
+    DEBUG_PRINTLN("\n📤 Publishing initial data...");
+    
+    // Дисплей
+    mqttClient.publish(MQTT_TOPIC_DISPLAY, "00", true);
+    
+    // Светодиоды
+    for (int i = 1; i <= 5; i++) {
+        String topic = String(MQTT_TOPIC_LED_PREFIX) + i;
+        mqttClient.publish(topic.c_str(), "OFF", true);
+    }
+    
+    // Кнопки
+    for (int i = 0; i < 3; i++) {
+        mqttClient.publish(buttonTopicsState[i], "OFF", true);
+    }
+    
+    discoveryPublished = true;
+    DEBUG_PRINTLN("\n🎯 Discovery completed successfully!");
+    DEBUG_PRINTLN("Check Home Assistant: Devices & Services → MQTT");
+}
+
+// ====================== MQTT CALLBACK ======================
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+    // Преобразуем payload в строку
+    String message = "";
+    for (unsigned int i = 0; i < length; i++) {
+        message += (char)payload[i];
+    }
+    
+    DEBUG_PRINT("MQTT Message arrived [");
+    DEBUG_PRINT(topic);
+    DEBUG_PRINT("]: ");
+    DEBUG_PRINTLN(message);
+    
+    // Обрабатываем команды для выходов
+    if (String(topic) == MQTT_TOPIC_RELAY_PLUS) {
+        if (message == "ON" || message == "1" || message == "PRESS") {
+            digitalWrite(PIN_PLUS, HIGH);
+            pinStates[0] = true;
+            buttonShouldRelease[0] = true;
+            buttonReleaseTime[0] = millis() + BUTTON_PRESS_MS;
+            
+            // Публикуем состояние
+            mqttClient.publish(MQTT_TOPIC_RELAY_PLUS_STATE, "ON", true);
+            DEBUG_PRINTLN("PLUS button pressed via MQTT");
+        }
+        else if (message == "OFF" || message == "0") {
+            digitalWrite(PIN_PLUS, LOW);
+            pinStates[0] = false;
+            buttonShouldRelease[0] = false;
+            mqttClient.publish(MQTT_TOPIC_RELAY_PLUS_STATE, "OFF", true);
+        }
+    }
+    else if (String(topic) == MQTT_TOPIC_RELAY_MINUS) {
+        if (message == "ON" || message == "1" || message == "PRESS") {
+            digitalWrite(PIN_MINUS, HIGH);
+            pinStates[1] = true;
+            buttonShouldRelease[1] = true;
+            buttonReleaseTime[1] = millis() + BUTTON_PRESS_MS;
+            
+            mqttClient.publish(MQTT_TOPIC_RELAY_MINUS_STATE, "ON", true);
+            DEBUG_PRINTLN("MINUS button pressed via MQTT");
+        }
+        else if (message == "OFF" || message == "0") {
+            digitalWrite(PIN_MINUS, LOW);
+            pinStates[1] = false;
+            buttonShouldRelease[1] = false;
+            mqttClient.publish(MQTT_TOPIC_RELAY_MINUS_STATE, "OFF", true);
+        }
+    }
+    else if (String(topic) == MQTT_TOPIC_RELAY_ENTER) {
+        if (message == "ON" || message == "1" || message == "PRESS") {
+            digitalWrite(PIN_ENTER, HIGH);
+            pinStates[2] = true;
+            buttonShouldRelease[2] = true;
+            buttonReleaseTime[2] = millis() + BUTTON_PRESS_MS;
+            
+            mqttClient.publish(MQTT_TOPIC_RELAY_ENTER_STATE, "ON", true);
+            DEBUG_PRINTLN("ENTER button pressed via MQTT");
+        }
+        else if (message == "OFF" || message == "0") {
+            digitalWrite(PIN_ENTER, LOW);
+            pinStates[2] = false;
+            buttonShouldRelease[2] = false;
+            mqttClient.publish(MQTT_TOPIC_RELAY_ENTER_STATE, "OFF", true);
+        }
+    }
+}
+
+void publishMeterData(const String& result) {
+    if (!mqttClient.connected() || result.length() == 0) return;
+    
+    // Парсим результат в формате: "12 | LEDs:10101"
+    int pipePos = result.indexOf('|');
+    
+    if (pipePos > 0) {
+        // Цифры с семисегментника
+        String digits = result.substring(0, 2);
+        if (digits.length() == 2 && isDigit(digits[0]) && isDigit(digits[1])) {
+            static String lastDigits = "";
+            if (digits != lastDigits) { // Публикуем только при изменении
+                mqttClient.publish(MQTT_TOPIC_DISPLAY, digits.c_str(), true);
+                lastDigits = digits;
+                DEBUG_PRINTLN("Published digits: " + digits);
+            }
+        }
+        
+        // Светодиоды
+        String ledsPart = result.substring(pipePos);
+        if (ledsPart.indexOf("LEDs:") >= 0) {
+            int ledsStart = ledsPart.indexOf("LEDs:") + 5;
+            String ledStates = ledsPart.substring(ledsStart);
+            
+            static String lastLedStates[5] = {"", "", "", "", ""};
+            
+            for (int i = 0; i < 5 && i < ledStates.length(); i++) {
+                String topic = String(MQTT_TOPIC_LED_PREFIX) + (i + 1);
+                String state = (ledStates[i] == '1') ? "ON" : "OFF";
+                
+                if (state != lastLedStates[i]) { // Публикуем только при изменении
+                    mqttClient.publish(topic.c_str(), state.c_str(), true);
+                    lastLedStates[i] = state;
+                    
+                    DEBUG_PRINT("LED");
+                    DEBUG_PRINT(i + 1);
+                    DEBUG_PRINT(" (");
+                    DEBUG_PRINT(ledNames[i]);
+                    DEBUG_PRINT("): ");
+                    DEBUG_PRINTLN(state);
+                }
+            }
+        }
+    }
+}
+
+void checkSystemHealth() {
+    static unsigned long lastHeapCheck = 0;
+    
+    if (millis() - lastHeapCheck > 60000) { // Каждую минуту
+        uint32_t freeHeap = ESP.getFreeHeap();
+        DEBUG_PRINT("System health - Free heap: ");
+        DEBUG_PRINTLN(freeHeap);
+        
+        if (freeHeap < 5000) { // Критически мало памяти
+            DEBUG_PRINTLN("⚠️  Critical memory low! Restarting...");
+            delay(1000);
+            ESP.restart();
+        }
+        
+        lastHeapCheck = millis();
+    }
+}
+
+// ====================== SETUP ======================
+void setup() {
+  Serial.begin(115200);
+  DEBUG_PRINTLN("\n\nESP32-CAM Starting...");
+  
+  initMaskMap();
+  
+  // Инициализация GPIO
+  pinMode(PIN_PLUS, OUTPUT);
+  pinMode(PIN_MINUS, OUTPUT);
+  pinMode(PIN_ENTER, OUTPUT);
+  
+  // Устанавливаем LOW по умолчанию
+  digitalWrite(PIN_PLUS, LOW);
+  digitalWrite(PIN_MINUS, LOW);
+  digitalWrite(PIN_ENTER, LOW);
+  
+  // Инициализация камеры
+  camera_config_t config;
+  config.ledc_channel = LEDC_CHANNEL_0;
+  config.ledc_timer = LEDC_TIMER_0;
+  config.pin_d0 = 5; config.pin_d1 = 18; config.pin_d2 = 19; config.pin_d3 = 21;
+  config.pin_d4 = 36; config.pin_d5 = 39; config.pin_d6 = 34; config.pin_d7 = 35;
+  config.pin_xclk = 0; config.pin_pclk = 22; config.pin_vsync = 25;
+  config.pin_href = 23; config.pin_sccb_sda = 26; config.pin_sccb_scl = 27;
+  config.pin_pwdn = 32; config.pin_reset = -1;
+  config.xclk_freq_hz = 16000000;
+  config.pixel_format = PIXFORMAT;
+  config.frame_size = FRAME_SIZE;
+  config.jpeg_quality = 0;
+  config.fb_count = 1;
+  config.grab_mode = CAMERA_GRAB_LATEST; // Получаем последний кадр
+
+  esp_err_t err = esp_camera_init(&config);
+  if (err != ESP_OK) {
+    DEBUG_PRINTF("Camera init failed: 0x%x\n", err);
+    return;
+  }
+  
+  sensor_t *s = esp_camera_sensor_get();
+  s->set_vflip(s, 1); // Коррекция ориентации
+  
+  // Подключение к WiFi
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  DEBUG_PRINT("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    DEBUG_PRINT(".");
+  }
+  DEBUG_PRINTLN("\nConnected!");
+  DEBUG_PRINT("IP Address: ");
+  DEBUG_PRINTLN(WiFi.localIP());
+
+        // ===== ИНИЦИАЛИЗАЦИЯ MQTT =====
+  mqttClient.setBufferSize(1024);
+  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+  mqttClient.setCallback(mqttCallback);
+  mqttClient.setSocketTimeout(15);  // Увеличиваем timeout
+  mqttClient.setKeepAlive(60);      // Keep-alive 60 секунд
+
+  connectToMqtt();
+
+  // Регистрация обработчиков
+  server.on("/", handleRoot);
+  server.on("/stream", handleStream);        // Отдельная страница потока
+  server.on("/frame", handleFrame);          // Изображение с разметкой
+  server.on("/control", handleControl);      // Управление пинами
+  server.on("/pinstatus", handlePinStatus);  // Статус пинов
+  
+  server.begin();
+
+    // Проверка свободной памяти
+  DEBUG_PRINT("Free heap: ");
+  DEBUG_PRINTLN(ESP.getFreeHeap());
+    
+  if (ESP.getFreeHeap() < 10000) {
+      DEBUG_PRINTLN("⚠️  Warning: Low memory!");
+  }
+
+  DEBUG_PRINTLN("✅ HTTP server started");
+  DEBUG_PRINTLN("✅ Setup completed");
+}
+
+
+// ====================== LOOP ======================
+void loop() {
+    // Обработка веб-сервера
+    server.handleClient();
+    
+    // Управление MQTT соединением
+    static unsigned long lastMqttCheck = 0;
+    if (millis() - lastMqttCheck > 30000) { // Проверка каждые 30 секунд
+        if (!mqttClient.connected()) {
+            DEBUG_PRINTLN("\n🔌 MQTT disconnected, reconnecting...");
+            discoveryPublished = false; // Сброс для повторной отправки Discovery
+            connectToMqtt();
+        } else {
+            // Периодический "ping" для поддержания соединения
+            mqttClient.publish("home/meter/heartbeat", "alive", false);
+        }
+        lastMqttCheck = millis();
+    }
+    
+    // Обработка MQTT
+    mqttClient.loop();
+    
+    // Автоматическое размыкание кнопок
+    handleButtonRelease();
+
+    checkSystemHealth(); // Проверка здоровья системы
+    
+    // Отправка Discovery после подключения
+    if (mqttClient.connected() && !discoveryPublished) {
+        static unsigned long discoveryDelayStart = 0;
+        
+        if (discoveryDelayStart == 0) {
+            discoveryDelayStart = millis();
+        }
+        
+        // Ждем 3 секунды после подключения перед отправкой Discovery
+        if (millis() - discoveryDelayStart > 3000) {
+            publishHomeAssistantDiscovery();
+            discoveryDelayStart = 0; // Сброс для следующего цикла
+        }
+    }
+    
+    // Чтение данных с камеры и публикация
+    static unsigned long lastCameraRead = 0;
+    if (millis() - lastCameraRead > 2000) { // Каждые 2 секунды
+        if (mqttClient.connected() && discoveryPublished) {
+            String result = readDisplay();
+            DEBUG_PRINT("📸 Camera read: ");
+            DEBUG_PRINTLN(result);
+            
+            // Парсим и публикуем данные
+            publishMeterData(result);
+        }
+        lastCameraRead = millis();
+    }
 }
