@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ESPAsyncWebServer.h>
+#include "DebugLogger.h"
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <config.h>
@@ -13,6 +14,8 @@ void handleGetLayout();
 void handleSetLayout();
 void handleGetThresholds();
 void handleSetThresholds();
+void handleSetLogging();
+void handleGetLogging();
 // ====================== GPIO CONTROL ======================
 const int PIN_PLUS  = 14;   // Кнопка "Плюс"
 const int PIN_MINUS = 13;   // Кнопка "Минус"
@@ -270,6 +273,9 @@ void handleRoot() {
     
     <div style="text-align: center;">
       <h3>Virtual Buttons</h3>
+      <div style="margin-bottom:12px;">
+        <button id="btnLogToggle" class="button" style="width:220px;background:#555;color:#fff" onclick="toggleLogging()">Toggle Logging</button>
+      </div>
       <button id="btnPlus" class="button plus" 
               onmousedown="controlPin('plus', true)" 
               ontouchstart="controlPin('plus', true)"
@@ -308,6 +314,7 @@ void handleRoot() {
       <p>Stream starts automatically. Click below to view full screen:</p>
       <a href="/stream" class="link-button">Open Video Stream Page</a>
       <a href="#" class="link-button" onclick="window.open('http://'+location.hostname+':8080/update','_blank')">Firmware Update</a>
+      <a href="#" class="link-button" onclick="window.open('http://'+location.hostname+':8080/logs','_blank')">View Logs</a>
       <div style="margin-top: 15px;">
         <div style="margin-bottom:10px; text-align:left;">
           <strong>ROI (Region of Interest):</strong><br>
@@ -382,6 +389,8 @@ void handleRoot() {
     // Инициализация
     document.addEventListener('DOMContentLoaded', function() {
       updateStatus();
+      // load logging state
+      fetch('/getlogging').then(r=>r.json()).then(j=>{ if(j && j.enabled!==undefined){ document.getElementById('btnLogToggle').textContent = j.enabled ? 'Disable Logging' : 'Enable Logging'; } }).catch(()=>{});
       startAutoUpdate();
       // Загружаем текущие ROI и заполняем поля
       fetch('/roi').then(r=>r.json()).then(data=>{
@@ -489,6 +498,14 @@ void handleRoot() {
 
       fetch('/setlayout', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj)})
         .then(r=>{ if (r.ok) alert('Layout saved'); else alert('Save failed'); });
+    }
+
+    function toggleLogging() {
+      fetch('/setlogging?en=toggle').then(r=>r.json()).then(j=>{
+        if (j && j.enabled!==undefined) {
+          document.getElementById('btnLogToggle').textContent = j.enabled ? 'Disable Logging' : 'Enable Logging';
+        }
+      }).catch(()=>{ alert('Failed to toggle logging'); });
     }
 
     // create seg tables and load layout once DOM ready
@@ -1247,11 +1264,26 @@ void setup() {
   server.on("/setlayout", HTTP_POST, handleSetLayout); // Установить новую таблицу
   server.on("/thresholds", handleGetThresholds); // Получить пороги
   server.on("/setthresholds", handleSetThresholds); // Установить пороги
+  server.on("/setlogging", handleSetLogging);
+  server.on("/getlogging", handleGetLogging);
   // Инициализация OTA обновлений через отдельный AsyncWebServer
   OTAUpdater_begin(otaServer);
   otaServer.begin();
 
+  // Инициализация DebugLogger: серийный порт + websocket на otaServer:/ws
+#if DEBUG_ENABLED
+  DebugLogger::beginSerial(115200);
+  DebugLogger::beginAsyncWebSocket(otaServer, "/ws");
+  DebugLogger::setEnabled(true);
+#endif
+
   server.begin();
+
+  // Register set/get logging handlers (use lambdas capturing nothing)
+  server.on("/setlogging", [](){
+    // Not used - real handler with request is below
+  });
+
 
     // Проверка свободной памяти
   DEBUG_PRINT("Free heap: ");
@@ -1421,4 +1453,28 @@ void handleSetThresholds() {
   }
 
   if (changed) server.send(200, "text/plain", "OK"); else server.send(400, "text/plain", "Missing or invalid parameters");
+}
+
+// Устанавливает состояние логирования по query ?en=1|0|toggle
+void handleSetLogging() {
+  if (!server.hasArg("en")) { server.send(400, "application/json", "{\"error\":\"missing en\"}"); return; }
+  String v = server.arg("en");
+  if (v == "toggle") {
+    DebugLogger::setEnabled(!DebugLogger::isEnabled());
+  } else if (v == "1") {
+    DebugLogger::setEnabled(true);
+  } else if (v == "0") {
+    DebugLogger::setEnabled(false);
+  }
+  String json = "{";
+  json += "\"enabled\":" + String(DebugLogger::isEnabled() ? 1 : 0);
+  json += "}";
+  server.send(200, "application/json", json);
+}
+
+void handleGetLogging() {
+  String json = "{";
+  json += "\"enabled\":" + String(DebugLogger::isEnabled() ? 1 : 0);
+  json += "}";
+  server.send(200, "application/json", json);
 }

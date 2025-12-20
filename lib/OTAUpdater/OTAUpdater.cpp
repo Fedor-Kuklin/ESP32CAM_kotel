@@ -7,6 +7,7 @@
 #include <FS.h>
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
+#include "DebugLogger.h"
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -222,5 +223,41 @@ void OTAUpdater_begin(AsyncWebServer &server) {
     AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", json);
     resp->addHeader("Connection", "close");
     request->send(resp);
+  });
+
+  // Simple log viewer page (WebSocket client connects to /ws)
+  server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (!request->authenticate(OTA_USER, OTA_PASS)) { request->requestAuthentication(); return; }
+    String html = R"rawliteral(
+    <!doctype html>
+    <html><head><meta charset="utf-8"><title>Logs</title></head>
+    <body style="font-family:Arial,sans-serif;">
+      <h3>Device logs (WebSocket)</h3>
+      <pre id="out" style="height:60vh; overflow:auto; border:1px solid #ccc; padding:8px; background:#111; color:#0f0;"></pre>
+      <script>
+        var out = document.getElementById('out');
+        var proto = (location.protocol === 'https:') ? 'wss' : 'ws';
+        var ws = new WebSocket(proto + '://' + location.host + '/ws');
+        ws.onmessage = function(evt){ out.textContent += evt.data + '\n'; out.scrollTop = out.scrollHeight; };
+        ws.onopen = function(){ out.textContent += 'WebSocket connected\n'; };
+        ws.onclose = function(){ out.textContent += 'WebSocket closed\n'; };
+      </script>
+    </body></html>
+    )rawliteral";
+    request->send(200, "text/html", html);
+  });
+
+  // Pause / Resume websocket logs
+  server.on("/logs/pause", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (!request->authenticate(OTA_USER, OTA_PASS)) { request->requestAuthentication(); return; }
+    DebugLogger::pauseWeb();
+    AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"paused\":true}");
+    request->send(r);
+  });
+  server.on("/logs/resume", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (!request->authenticate(OTA_USER, OTA_PASS)) { request->requestAuthentication(); return; }
+    DebugLogger::resumeWeb();
+    AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"paused\":false}");
+    request->send(r);
   });
 }
