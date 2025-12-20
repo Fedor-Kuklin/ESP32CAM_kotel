@@ -1,6 +1,6 @@
 #include <secret.h>
 
-#define DEBUG_ENABLED 0  // 1 = включено, 0 = выключено
+#define DEBUG_ENABLED 1  // 1 = включено, 0 = выключено
 
 #if DEBUG_ENABLED
     #define DEBUG_PRINT(x) Serial.print(x)

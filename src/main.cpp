@@ -6,6 +6,11 @@
 #include <ArduinoJson.h>
 #include <config.h>
 
+
+void handleGetLayout();
+void handleSetLayout();
+void handleGetThresholds();
+void handleSetThresholds();
 // ====================== GPIO CONTROL ======================
 const int PIN_PLUS  = 14;   // Кнопка "Плюс"
 const int PIN_MINUS = 13;   // Кнопка "Минус"
@@ -184,7 +189,7 @@ String readDisplay() {
       mask |= ((avg >= threshSegment) << s);
     }
     int digit = maskToDigit[mask];
-    out += (digit < 0 ? "?" : String(digit));
+    if (digit < 0) out += "?"; else out += (char)digit;
   }
 
   // ---- LED индикаторы ----
@@ -298,7 +303,36 @@ void handleRoot() {
       <p>Stream starts automatically. Click below to view full screen:</p>
       <a href="/stream" class="link-button">Open Video Stream Page</a>
       <div style="margin-top: 15px;">
+        <div style="margin-bottom:10px; text-align:left;">
+          <strong>ROI (Region of Interest):</strong><br>
+          <label>X: <input id="roiX" type="number" style="width:70px"></label>
+          <label>Y: <input id="roiY" type="number" style="width:70px"></label>
+          <label style="margin-left:10px;"><input id="roiAuto" type="checkbox"> Auto ROI</label>
+            <button onclick="applyROI()" style="margin-left:10px;padding:6px 10px;">Apply</button>
+            <div style="margin-top:8px;">
+              <label>Segment threshold: <input id="threshSeg" type="number" style="width:80px"></label>
+              <label style="margin-left:10px;">LED threshold: <input id="threshLed" type="number" style="width:80px"></label>
+              <button onclick="applyThresholds()" style="margin-left:10px;padding:6px 10px;">Set Thresholds</button>
+            </div>
+        </div>
         <img src="/frame?roi=1" width="320" id="streamImg">
+      </div>
+      
+      <div style="margin-top:20px; text-align:left;">
+        <h3>Layout Configuration</h3>
+        <p>Edit segment rectangles and top LEDs positions:</p>
+        <div>
+          <div id="segTables"></div>
+          <h4>Top LEDs</h4>
+          <table id="ledTable" border="1" style="border-collapse:collapse;margin-top:8px;">
+            <thead><tr><th>#</th><th>X</th><th>Y</th><th>W</th><th>H</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div style="margin-top:8px;">
+            <button onclick="applyLayout()" style="padding:6px 10px;">Save Layout</button>
+            <button onclick="loadLayout()" style="padding:6px 10px; margin-left:6px;">Reload</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -343,6 +377,119 @@ void handleRoot() {
     document.addEventListener('DOMContentLoaded', function() {
       updateStatus();
       startAutoUpdate();
+      // Загружаем текущие ROI и заполняем поля
+      fetch('/roi').then(r=>r.json()).then(data=>{
+        document.getElementById('roiX').value = data.x;
+        document.getElementById('roiY').value = data.y;
+        // Оставляем Auto unchecked по умолчанию
+      }).catch(()=>{});
+      // Load thresholds
+      fetch('/thresholds').then(r=>r.json()).then(t=>{
+        document.getElementById('threshSeg').value = t.seg;
+        document.getElementById('threshLed').value = t.led;
+      }).catch(()=>{});
+    });
+
+    function applyROI() {
+      const x = document.getElementById('roiX').value;
+      const y = document.getElementById('roiY').value;
+      const isAuto = document.getElementById('roiAuto').checked;
+      let url = `/setroi?x=${x}&y=${y}`;
+      if (isAuto) url += '&auto=1';
+      fetch(url)
+        .then(r=>{
+          if (r.ok) {
+            updateStatus();
+          } else {
+            alert('Failed to set ROI');
+          }
+        });
+    }
+
+    function applyThresholds() {
+      const seg = document.getElementById('threshSeg').value;
+      const led = document.getElementById('threshLed').value;
+      fetch(`/setthresholds?seg=${seg}&led=${led}`).then(r=>{
+        if (r.ok) updateStatus(); else alert('Failed to set thresholds');
+      });
+    }
+
+    // Layout functions
+    function createSegTable(d) {
+      let html = `<h4>Digit ${d}</h4><table border="1" style="border-collapse:collapse;"><thead><tr><th>#</th><th>X</th><th>Y</th><th>W</th><th>H</th></tr></thead><tbody>`;
+      for (let s=0; s<7; s++) {
+        html += `<tr><td>${s}</td>`+
+                `<td><input id="seg_${d}_${s}_x" type="number" style="width:60px"></td>`+
+                `<td><input id="seg_${d}_${s}_y" type="number" style="width:60px"></td>`+
+                `<td><input id="seg_${d}_${s}_w" type="number" style="width:60px"></td>`+
+                `<td><input id="seg_${d}_${s}_h" type="number" style="width:60px"></td></tr>`;
+      }
+      html += `</tbody></table>`;
+      return html;
+    }
+
+    function loadLayout() {
+      fetch('/getlayout').then(r=>r.json()).then(data=>{
+        // segPos
+        for (let d=0; d < data.segPos.length; d++) {
+          let segs = data.segPos[d];
+          for (let s=0; s<segs.length; s++) {
+            document.getElementById(`seg_${d}_${s}_x`).value = segs[s].x;
+            document.getElementById(`seg_${d}_${s}_y`).value = segs[s].y;
+            document.getElementById(`seg_${d}_${s}_w`).value = segs[s].w;
+            document.getElementById(`seg_${d}_${s}_h`).value = segs[s].h;
+          }
+        }
+        // topLEDs
+        let tbody = document.querySelector('#ledTable tbody');
+        tbody.innerHTML = '';
+        for (let i=0; i < data.topLEDs.length; i++) {
+          let l = data.topLEDs[i];
+          let row = document.createElement('tr');
+          row.innerHTML = `<td>${i}</td>`+
+                          `<td><input id="led_${i}_x" type="number" style="width:60px" value="${l.x}"></td>`+
+                          `<td><input id="led_${i}_y" type="number" style="width:60px" value="${l.y}"></td>`+
+                          `<td><input id="led_${i}_w" type="number" style="width:60px" value="${l.w}"></td>`+
+                          `<td><input id="led_${i}_h" type="number" style="width:60px" value="${l.h}"></td>`;
+          tbody.appendChild(row);
+        }
+      }).catch(e=>{ console.log('loadLayout error', e); });
+    }
+
+    function applyLayout() {
+      let obj = { segPos: [], topLEDs: [] };
+      for (let d=0; d<2; d++) {
+        let arr = [];
+        for (let s=0; s<7; s++) {
+          arr.push({
+            x: parseInt(document.getElementById(`seg_${d}_${s}_x`).value || 0),
+            y: parseInt(document.getElementById(`seg_${d}_${s}_y`).value || 0),
+            w: parseInt(document.getElementById(`seg_${d}_${s}_w`).value || 0),
+            h: parseInt(document.getElementById(`seg_${d}_${s}_h`).value || 0)
+          });
+        }
+        obj.segPos.push(arr);
+      }
+      // LEDs
+      let tbody = document.querySelectorAll('#ledTable tbody tr');
+      for (let i=0;i<tbody.length;i++) {
+        obj.topLEDs.push({
+          x: parseInt(document.getElementById(`led_${i}_x`).value || 0),
+          y: parseInt(document.getElementById(`led_${i}_y`).value || 0),
+          w: parseInt(document.getElementById(`led_${i}_w`).value || 0),
+          h: parseInt(document.getElementById(`led_${i}_h`).value || 0)
+        });
+      }
+
+      fetch('/setlayout', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj)})
+        .then(r=>{ if (r.ok) alert('Layout saved'); else alert('Save failed'); });
+    }
+
+    // create seg tables and load layout once DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+      let st = document.getElementById('segTables');
+      st.innerHTML = createSegTable(0) + createSegTable(1);
+      loadLayout();
     });
   </script>
 </body>
@@ -378,6 +525,13 @@ void handleStream() {
     <h1>ESP32-CAM Live Stream</h1>
     <a href="/" class="back-link">Back to Control Panel</a>
     <div style="margin-top: 20px;">
+      <div style="margin-bottom:10px; text-align:left;">
+        <strong>ROI (Region of Interest):</strong><br>
+        <label>X: <input id="sRoiX" type="number" style="width:70px"></label>
+        <label>Y: <input id="sRoiY" type="number" style="width:70px"></label>
+        <label style="margin-left:10px;"><input id="sRoiAuto" type="checkbox"> Auto ROI</label>
+        <button onclick="applyStreamROI()" style="margin-left:10px;padding:6px 10px;">Apply</button>
+      </div>
       <img id="stream" src="/frame?roi=1">
     </div>
   </div>
@@ -390,7 +544,22 @@ void handleStream() {
     
     // Обновление каждые 100мс для плавного потока
     setInterval(updateStream, 100);
-    
+
+    // Загружаем текущие ROI для полей
+    fetch('/roi').then(r=>r.json()).then(data=>{
+      document.getElementById('sRoiX').value = data.x;
+      document.getElementById('sRoiY').value = data.y;
+    }).catch(()=>{});
+
+    function applyStreamROI() {
+      const x = document.getElementById('sRoiX').value;
+      const y = document.getElementById('sRoiY').value;
+      const isAuto = document.getElementById('sRoiAuto').checked;
+      let url = `/setroi?x=${x}&y=${y}`;
+      if (isAuto) url += '&auto=1';
+      fetch(url).then(r=>{ if (!r.ok) alert('Failed to set ROI'); });
+    }
+
     // Начальное обновление
     updateStream();
   </script>
@@ -439,6 +608,68 @@ void handlePinStatus() {
   server.send(200, "application/json", json);
 }
 
+// Возвращает текущие координаты ROI в JSON
+void handleGetROI() {
+  String json = "{";
+  json += "\"x\":" + String(ROI_X) + ",";
+  json += "\"y\":" + String(ROI_Y) + ",";
+  json += "\"w\":" + String(ROI_W) + ",";
+  json += "\"h\":" + String(ROI_H);
+  json += "}";
+  server.send(200, "application/json", json);
+}
+
+// Устанавливает координаты ROI через query-параметры x,y,w,h
+void handleSetROI() {
+  bool changed = false;
+  if (server.hasArg("x")) {
+    int v = server.arg("x").toInt(); if (v >= 0) { ROI_X = v; changed = true; }
+  }
+  if (server.hasArg("y")) {
+    int v = server.arg("y").toInt(); if (v >= 0) { ROI_Y = v; changed = true; }
+  }
+
+  // Если указан auto=1 - вычисляем ширину/высоту автоматически
+  if (server.hasArg("auto") && server.arg("auto").toInt() == 1) {
+    int maxX = 0;
+    int maxY = 0;
+    // сегменты
+    for (int d = 0; d < DIGITS; d++) {
+      for (int s = 0; s < SEGMENTS; s++) {
+        int ex = segPos[d][s].x + segPos[d][s].w;
+        int ey = segPos[d][s].y + segPos[d][s].h;
+        if (ex > maxX) maxX = ex;
+        if (ey > maxY) maxY = ey;
+      }
+    }
+    // светодиоды
+    for (unsigned int i = 0; i < sizeof(topLEDs)/sizeof(topLEDs[0]); i++) {
+      int ex = topLEDs[i].x + topLEDs[i].w;
+      int ey = topLEDs[i].y + topLEDs[i].h;
+      if (ex > maxX) maxX = ex;
+      if (ey > maxY) maxY = ey;
+    }
+    const int MARGIN = 4;
+    ROI_W = maxX + MARGIN;
+    ROI_H = maxY + MARGIN;
+    changed = true;
+  } else {
+    // Для обратной совместимости можно передать w/h, но UI использует только x/y
+    if (server.hasArg("w")) {
+      int v = server.arg("w").toInt(); if (v > 0) { ROI_W = v; changed = true; }
+    }
+    if (server.hasArg("h")) {
+      int v = server.arg("h").toInt(); if (v > 0) { ROI_H = v; changed = true; }
+    }
+  }
+
+  if (changed) {
+    server.send(200, "text/plain", "OK");
+  } else {
+    server.send(400, "text/plain", "Missing or invalid parameters");
+  }
+}
+
 // Обработчик видео (упрощенный)
 void handleFrame() {
   camera_fb_t *fb = esp_camera_fb_get();
@@ -480,42 +711,20 @@ void handleFrame() {
     drawBox(p, fb->width, r3, 0xF800); // Красный
   }
 
-  // Отправка BMP (исправленный заголовок)
+  // Отправка BMP
   uint32_t size = 54 + fb->len;
-  // Используем правильные типы для заголовка BMP
-  struct __attribute__((packed)) BMPHeader {
-    uint8_t signature[2] = {'B','M'};
-    uint32_t fileSize;
-    uint32_t reserved = 0;
-    uint32_t dataOffset = 54;
-    uint32_t headerSize = 40;
-    uint32_t width;
-    uint32_t height;
-    uint16_t planes = 1;
-    uint16_t bitsPerPixel = 16;
-    uint32_t compression = 3; // BI_BITFIELDS
-    uint32_t imageSize;
-    uint32_t xPixelsPerMeter = 0;
-    uint32_t yPixelsPerMeter = 0;
-    uint32_t colorsUsed = 0;
-    uint32_t colorsImportant = 0;
-    uint32_t redMask = 0xF800;
-    uint32_t greenMask = 0x07E0;
-    uint32_t blueMask = 0x001F;
+  uint8_t h[54] = {
+    'B','M', size, size>>8, size>>16, size>>24, 0,0, 0,0, 54,0,0,0,
+    40,0,0,0, fb->width, fb->width>>8, 0,0, fb->height, fb->height>>8, 0,0,
+    1,0, 16,0
   };
-  
-  BMPHeader header;
-  header.fileSize = size;
-  header.width = fb->width;
-  header.height = fb->height;
-  header.imageSize = fb->len;
 
   WiFiClient c = server.client();
   c.println("HTTP/1.1 200 OK");
   c.println("Content-Type: image/bmp");
   c.println("Connection: close");
   c.println();
-  c.write((const uint8_t*)&header, sizeof(header));
+  c.write(h, 54);
   c.write(fb->buf, fb->len);
 
   esp_camera_fb_return(fb);
@@ -1021,6 +1230,12 @@ void setup() {
   server.on("/frame", handleFrame);          // Изображение с разметкой
   server.on("/control", handleControl);      // Управление пинами
   server.on("/pinstatus", handlePinStatus);  // Статус пинов
+  server.on("/roi", handleGetROI);           // Получить текущие ROI
+  server.on("/setroi", handleSetROI);        // Установить ROI (x,y,w,h)
+  server.on("/getlayout", handleGetLayout);  // Получить таблицу segPos/topLEDs
+  server.on("/setlayout", HTTP_POST, handleSetLayout); // Установить новую таблицу
+  server.on("/thresholds", handleGetThresholds); // Получить пороги
+  server.on("/setthresholds", handleSetThresholds); // Установить пороги
   
   server.begin();
 
@@ -1092,4 +1307,104 @@ void loop() {
         }
         lastCameraRead = millis();
     }
+}
+
+// Возвращает текущую таблицу segPos и topLEDs в JSON
+void handleGetLayout() {
+  DynamicJsonDocument doc(2048);
+  JsonArray segs = doc.createNestedArray("segPos");
+  for (int d = 0; d < DIGITS; d++) {
+    JsonArray segArr = segs.createNestedArray();
+    for (int s = 0; s < SEGMENTS; s++) {
+      JsonObject o = segArr.createNestedObject();
+      o["x"] = segPos[d][s].x;
+      o["y"] = segPos[d][s].y;
+      o["w"] = segPos[d][s].w;
+      o["h"] = segPos[d][s].h;
+    }
+  }
+
+  JsonArray leds = doc.createNestedArray("topLEDs");
+  int ledCount = sizeof(topLEDs) / sizeof(topLEDs[0]);
+  for (int i = 0; i < ledCount; i++) {
+    JsonObject o = leds.createNestedObject();
+    o["x"] = topLEDs[i].x;
+    o["y"] = topLEDs[i].y;
+    o["w"] = topLEDs[i].w;
+    o["h"] = topLEDs[i].h;
+  }
+
+  String out;
+  serializeJson(doc, out);
+  server.send(200, "application/json", out);
+}
+
+// Устанавливает таблицу segPos и topLEDs (ожидает JSON в теле POST)
+void handleSetLayout() {
+  if (!server.hasArg("plain")) {
+    server.send(400, "text/plain", "Missing body");
+    return;
+  }
+
+  String body = server.arg("plain");
+  DynamicJsonDocument doc(4096);
+  DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    server.send(400, "text/plain", "Invalid JSON");
+    return;
+  }
+
+  // Парсим segPos
+  if (doc.containsKey("segPos")) {
+    JsonArray segs = doc["segPos"].as<JsonArray>();
+    int dcount = min((size_t)DIGITS, segs.size());
+    for (int d = 0; d < dcount; d++) {
+      JsonArray segArr = segs[d].as<JsonArray>();
+      int scount = min((size_t)SEGMENTS, segArr.size());
+      for (int s = 0; s < scount; s++) {
+        JsonObject o = segArr[s].as<JsonObject>();
+        if (o.containsKey("x")) segPos[d][s].x = o["x"].as<int>();
+        if (o.containsKey("y")) segPos[d][s].y = o["y"].as<int>();
+        if (o.containsKey("w")) segPos[d][s].w = o["w"].as<int>();
+        if (o.containsKey("h")) segPos[d][s].h = o["h"].as<int>();
+      }
+    }
+  }
+
+  // Парсим topLEDs
+  if (doc.containsKey("topLEDs")) {
+    JsonArray leds = doc["topLEDs"].as<JsonArray>();
+    int ledCount = min((size_t)(sizeof(topLEDs)/sizeof(topLEDs[0])), leds.size());
+    for (int i = 0; i < ledCount; i++) {
+      JsonObject o = leds[i].as<JsonObject>();
+      if (o.containsKey("x")) topLEDs[i].x = o["x"].as<int>();
+      if (o.containsKey("y")) topLEDs[i].y = o["y"].as<int>();
+      if (o.containsKey("w")) topLEDs[i].w = o["w"].as<int>();
+      if (o.containsKey("h")) topLEDs[i].h = o["h"].as<int>();
+    }
+  }
+
+  server.send(200, "text/plain", "OK");
+}
+
+// Возвращает текущие пороги в JSON
+void handleGetThresholds() {
+  String json = "{";
+  json += "\"seg\":" + String(threshSegment) + ",";
+  json += "\"led\":" + String(threshLED);
+  json += "}";
+  server.send(200, "application/json", json);
+}
+
+// Устанавливает пороги через query-параметры seg и led
+void handleSetThresholds() {
+  bool changed = false;
+  if (server.hasArg("seg")) {
+    int v = server.arg("seg").toInt(); if (v >= 0) { threshSegment = v; changed = true; }
+  }
+  if (server.hasArg("led")) {
+    int v = server.arg("led").toInt(); if (v >= 0) { threshLED = v; changed = true; }
+  }
+
+  if (changed) server.send(200, "text/plain", "OK"); else server.send(400, "text/plain", "Missing or invalid parameters");
 }
