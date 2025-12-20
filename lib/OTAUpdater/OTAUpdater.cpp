@@ -41,9 +41,9 @@ static void sendHtmlMessage(AsyncWebServerRequest *request, int code, const Stri
   String page = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + title + "</title></head><body style='font-family:Arial,sans-serif;padding:20px;'>";
   page += "<h2>" + title + "</h2>";
   page += "<p>" + msg + "</p>";
-  page += "<p><a href=\"http://"+ String("10.9.8.113:80") + "\"\">Back to Main</a> &nbsp; ";
-  page += "<a href=\"http://" + String(""/*placeholder*/ ) + "\">Home</a></p>";
-  if (rebootSoon) page += "<p>Device will reboot shortly...</p>";
+  page += "<p><a href=\"http://"+ String("10.9.8.113:80") + "\"\">Главная страница</a> &nbsp; </p>";
+//   page += "<a href=\"http://" + String(""/*placeholder*/ ) + "\">Home</a></p>";
+  if (rebootSoon) page += "<p>Устройство перезагрузится через несколько секунд...</p>";
   page += "</body></html>";
   AsyncWebServerResponse *resp = request->beginResponse(code, "text/html", page);
   resp->addHeader("Connection", "close");
