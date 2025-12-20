@@ -2,9 +2,11 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ESPAsyncWebServer.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <config.h>
+#include "OTAUpdater.h"
 
 
 void handleGetLayout();
@@ -20,8 +22,8 @@ const int PIN_ENTER = 12;   // Кнопка "Ввод"
 bool pinStates[3] = {false, false, false}; // [0]-plus, [1]-minus, [2]-enter
 
 // ====================== ROI ======================
-int ROI_X = 18;
-int ROI_Y = 44;
+int ROI_X = 10;
+int ROI_Y = 48;
 int ROI_W = 140;
 int ROI_H = 70;
 
@@ -137,6 +139,9 @@ bool buttonShouldRelease[3] = {false, false, false};
 
 // ====================== SERVER ======================
 WebServer server(80);
+
+// Separate Async server for OTA endpoints (runs on different port)
+AsyncWebServer otaServer(8080);
 
 // ====================== DRAW ======================
 inline void drawBox(uint16_t *buf, int w, Rect r, uint16_t color) {
@@ -302,6 +307,7 @@ void handleRoot() {
       <h3>Camera Stream</h3>
       <p>Stream starts automatically. Click below to view full screen:</p>
       <a href="/stream" class="link-button">Open Video Stream Page</a>
+      <a href="#" class="link-button" onclick="window.open('http://'+location.hostname+':8080/update','_blank')">Firmware Update</a>
       <div style="margin-top: 15px;">
         <div style="margin-bottom:10px; text-align:left;">
           <strong>ROI (Region of Interest):</strong><br>
@@ -714,8 +720,13 @@ void handleFrame() {
   // Отправка BMP
   uint32_t size = 54 + fb->len;
   uint8_t h[54] = {
-    'B','M', size, size>>8, size>>16, size>>24, 0,0, 0,0, 54,0,0,0,
-    40,0,0,0, fb->width, fb->width>>8, 0,0, fb->height, fb->height>>8, 0,0,
+    'B','M',
+    (uint8_t)(size & 0xFF), (uint8_t)((size >> 8) & 0xFF), (uint8_t)((size >> 16) & 0xFF), (uint8_t)((size >> 24) & 0xFF),
+    0,0, 0,0,
+    54,0,0,0,
+    40,0,0,0,
+    (uint8_t)(fb->width & 0xFF), (uint8_t)((fb->width >> 8) & 0xFF), 0,0,
+    (uint8_t)(fb->height & 0xFF), (uint8_t)((fb->height >> 8) & 0xFF), 0,0,
     1,0, 16,0
   };
 
@@ -1236,7 +1247,10 @@ void setup() {
   server.on("/setlayout", HTTP_POST, handleSetLayout); // Установить новую таблицу
   server.on("/thresholds", handleGetThresholds); // Получить пороги
   server.on("/setthresholds", handleSetThresholds); // Установить пороги
-  
+  // Инициализация OTA обновлений через отдельный AsyncWebServer
+  OTAUpdater_begin(otaServer);
+  otaServer.begin();
+
   server.begin();
 
     // Проверка свободной памяти
@@ -1311,12 +1325,12 @@ void loop() {
 
 // Возвращает текущую таблицу segPos и topLEDs в JSON
 void handleGetLayout() {
-  DynamicJsonDocument doc(2048);
-  JsonArray segs = doc.createNestedArray("segPos");
+  JsonDocument doc;
+  JsonArray segs = doc["segPos"].to<JsonArray>();
   for (int d = 0; d < DIGITS; d++) {
-    JsonArray segArr = segs.createNestedArray();
+    JsonArray segArr = segs.add<JsonArray>();
     for (int s = 0; s < SEGMENTS; s++) {
-      JsonObject o = segArr.createNestedObject();
+      JsonObject o = segArr.add<JsonObject>();
       o["x"] = segPos[d][s].x;
       o["y"] = segPos[d][s].y;
       o["w"] = segPos[d][s].w;
@@ -1324,10 +1338,10 @@ void handleGetLayout() {
     }
   }
 
-  JsonArray leds = doc.createNestedArray("topLEDs");
+  JsonArray leds = doc["topLEDs"].to<JsonArray>();
   int ledCount = sizeof(topLEDs) / sizeof(topLEDs[0]);
   for (int i = 0; i < ledCount; i++) {
-    JsonObject o = leds.createNestedObject();
+    JsonObject o = leds.add<JsonObject>();
     o["x"] = topLEDs[i].x;
     o["y"] = topLEDs[i].y;
     o["w"] = topLEDs[i].w;
@@ -1347,7 +1361,7 @@ void handleSetLayout() {
   }
 
   String body = server.arg("plain");
-  DynamicJsonDocument doc(4096);
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, body);
   if (err) {
     server.send(400, "text/plain", "Invalid JSON");
@@ -1355,7 +1369,7 @@ void handleSetLayout() {
   }
 
   // Парсим segPos
-  if (doc.containsKey("segPos")) {
+  if (doc["segPos"].is<JsonArray>()) {
     JsonArray segs = doc["segPos"].as<JsonArray>();
     int dcount = min((size_t)DIGITS, segs.size());
     for (int d = 0; d < dcount; d++) {
@@ -1363,24 +1377,24 @@ void handleSetLayout() {
       int scount = min((size_t)SEGMENTS, segArr.size());
       for (int s = 0; s < scount; s++) {
         JsonObject o = segArr[s].as<JsonObject>();
-        if (o.containsKey("x")) segPos[d][s].x = o["x"].as<int>();
-        if (o.containsKey("y")) segPos[d][s].y = o["y"].as<int>();
-        if (o.containsKey("w")) segPos[d][s].w = o["w"].as<int>();
-        if (o.containsKey("h")) segPos[d][s].h = o["h"].as<int>();
+        if (o["x"].is<int>()) segPos[d][s].x = o["x"].as<int>();
+        if (o["y"].is<int>()) segPos[d][s].y = o["y"].as<int>();
+        if (o["w"].is<int>()) segPos[d][s].w = o["w"].as<int>();
+        if (o["h"].is<int>()) segPos[d][s].h = o["h"].as<int>();
       }
     }
   }
 
   // Парсим topLEDs
-  if (doc.containsKey("topLEDs")) {
+  if (doc["topLEDs"].is<JsonArray>()) {
     JsonArray leds = doc["topLEDs"].as<JsonArray>();
     int ledCount = min((size_t)(sizeof(topLEDs)/sizeof(topLEDs[0])), leds.size());
     for (int i = 0; i < ledCount; i++) {
       JsonObject o = leds[i].as<JsonObject>();
-      if (o.containsKey("x")) topLEDs[i].x = o["x"].as<int>();
-      if (o.containsKey("y")) topLEDs[i].y = o["y"].as<int>();
-      if (o.containsKey("w")) topLEDs[i].w = o["w"].as<int>();
-      if (o.containsKey("h")) topLEDs[i].h = o["h"].as<int>();
+      if (o["x"].is<int>()) topLEDs[i].x = o["x"].as<int>();
+      if (o["y"].is<int>()) topLEDs[i].y = o["y"].as<int>();
+      if (o["w"].is<int>()) topLEDs[i].w = o["w"].as<int>();
+      if (o["h"].is<int>()) topLEDs[i].h = o["h"].as<int>();
     }
   }
 
